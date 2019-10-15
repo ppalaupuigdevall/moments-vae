@@ -60,7 +60,7 @@ class MaskedFullyConnection(BaseModule, nn.Linear):
         # Reshape again
         o = o.view(len(o), -1, self.out_channels)
         o = torch.transpose(o, 1, 2).contiguous()
-
+        
         return o
 
     def __repr__(self):

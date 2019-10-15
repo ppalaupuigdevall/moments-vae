@@ -28,8 +28,8 @@ class Encoder(BaseModule):
         self.input_shape = input_shape
         self.code_length = code_length
 
-        c, h, w = input_shape
-
+        c, h, w = input_shape # 1, 28, 28
+      
         activation_fn = nn.LeakyReLU()
 
         # Convolutional network
@@ -37,7 +37,8 @@ class Encoder(BaseModule):
             DownsampleBlock(channel_in=c, channel_out=32, activation_fn=activation_fn),
             DownsampleBlock(channel_in=32, channel_out=64, activation_fn=activation_fn),
         )
-        self.deepest_shape = (64, h // 4, w // 4)
+        self.deepest_shape = (64, h // 4, w // 4) # 64, 7, 7
+        
 
         # FC network
         self.fc = nn.Sequential(
@@ -60,7 +61,7 @@ class Encoder(BaseModule):
         h = x
         h = self.conv(h)
         h = h.view(len(h), -1)
-        o = self.fc(h)
+        o = self.fc(h) # o is 1, 64
 
         return o
 
@@ -174,7 +175,7 @@ class LSAMNIST(BaseModule):
 
         # Estimate CPDs with autoregression
         z_dist = self.estimator(z)
-        print(z_dist.size())
+        # print(z_dist.size()) # torch.Size([1, 100, 64])
         # Reconstruct x
         x_r = self.decoder(z)
         x_r = x_r.view(-1, *self.input_shape)
