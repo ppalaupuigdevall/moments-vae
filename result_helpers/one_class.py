@@ -14,6 +14,9 @@ from models.loss_functions import LSALoss
 from utils import novelty_score
 from utils import normalize
 
+
+import torch.nn.functional as F
+
 from SOS.moments import generateMoments
 
 class OneClassResultHelper(object):
@@ -80,20 +83,20 @@ class OneClassResultHelper(object):
                     print('z0_dist_shape =' + str(z_dist[0,:,0].size()))
                     print('z0_dist = ' + str(z_dist[0,:,0]))
                     print('z1_dist = ' + str(z_dist[0,:,1]))       
-                    exp_z0_dist = torch.exp(z_dist[0, :, 0])
+                    exp_z0_dist = F.softmax(z_dist[0, :, 0])
                     print(exp_z0_dist.size())
                     print('z0_dist_exp = ' + str(exp_z0_dist))    
-                    M = generateMoments(exp_z0_dist.cpu().numpy(), 4)
+                    M = generateMoments(exp_z0_dist.cpu().numpy(), 4,1)
                     print(M)
                     break
                 elif(i==0):
                     print('z0_dist_shape =' + str(z_dist[0,:,0].size()))
                     print('z0_dist = ' + str(z_dist[0,:,0]))
                     print('z1_dist = ' + str(z_dist[0,:,1]))       
-                    exp_z0_dist = torch.exp(z_dist[0, :, 0])
+                    exp_z0_dist = F.softmax(z_dist[0, :, 0])
                     print(exp_z0_dist.size())
                     print('z0_dist_exp = ' + str(exp_z0_dist))    
-                    M = generateMoments(exp_z0_dist.cpu().numpy(), 4)
+                    M = generateMoments(exp_z0_dist.cpu().numpy(), 4,1)
                     print(M)
 
                 self.loss(x, x_r, z, z_dist)
