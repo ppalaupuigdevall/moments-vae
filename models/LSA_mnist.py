@@ -174,7 +174,7 @@ class LSAMNIST(BaseModule):
 
         # Estimate CPDs with autoregression
         z_dist = self.estimator(z)
-
+        print(z_dist.size())
         # Reconstruct x
         x_r = self.decoder(z)
         x_r = x_r.view(-1, *self.input_shape)
