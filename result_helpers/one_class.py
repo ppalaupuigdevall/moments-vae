@@ -14,11 +14,16 @@ from models.loss_functions import LSALoss
 from utils import novelty_score
 from utils import normalize
 
+from tensorboardX import SummaryWriter
 
 import torch.nn.functional as F
 
+import matplotlib.pyplot as plt
+plt.switch_backend('agg')
 from SOS.moments import generateMoments
+from visualizator import visualize_img_cpd
 
+writer = SummaryWriter('runs/exp1_inlier')
 class OneClassResultHelper(object):
     """
     Performs tests for one-class datasets (MNIST or CIFAR-10).
@@ -57,70 +62,91 @@ class OneClassResultHelper(object):
 
         # Start iteration over classes
         for cl_idx, cl in enumerate(self.dataset.test_classes):
+            if(cl_idx == 1):
+                lala = True
+                print('cl_idx ' +str(cl_idx))
+                print('cl '+ str(cl))
+                # Load the checkpoint
+                self.model.load_w(join(self.checkpoints_dir, f'{cl}.pkl'))
 
-            # Load the checkpoint
-            self.model.load_w(join(self.checkpoints_dir, f'{cl}.pkl'))
+                # First we need a run on validation, to compute
+                # normalizing coefficient of the Novelty Score (Eq.9)
+                min_llk, max_llk, min_rec, max_rec = self.compute_normalizing_coefficients(cl)
 
-            # First we need a run on validation, to compute
-            # normalizing coefficient of the Novelty Score (Eq.9)
-            min_llk, max_llk, min_rec, max_rec = self.compute_normalizing_coefficients(cl)
+                # Run the actual test
+                self.dataset.test(cl)
+                loader = DataLoader(self.dataset)
 
-            # Run the actual test
-            self.dataset.test(cl)
-            loader = DataLoader(self.dataset)
+                sample_llk = np.zeros(shape=(len(loader),))
+                sample_rec = np.zeros(shape=(len(loader),))
+                sample_y = np.zeros(shape=(len(loader),))
 
-            sample_llk = np.zeros(shape=(len(loader),))
-            sample_rec = np.zeros(shape=(len(loader),))
-            sample_y = np.zeros(shape=(len(loader),))
-            for i, (x, y) in tqdm(enumerate(loader), desc=f'Computing scores for {self.dataset}'):
-                x = x.to('cuda')
+                for i, (x, y) in tqdm(enumerate(loader), desc=f'Computing scores for {self.dataset}'):
+                    x = x.to('cuda')
+                    
+                    x_r, z, z_dist = self.model(x) # z_dist has shape torch.Size([1, 100, 64])
+                    
+                    if(y.item() == 1):
+                        print("INLIER")     
+                        exp_z0_dist = torch.exp(z_dist[0, :, 0])
+                        exp_z0_dist /= torch.sum(z_dist[0, :, 0])
+                        exp_z63_dist = torch.exp(z_dist[0, :, 63])
+                        exp_z63_dist /= torch.sum(z_dist[0, :, 63])
+                        # print(exp_z0_dist.size())
+                        # print('z0_dist_exp = ' + str(exp_z0_dist))    
+                        # M = generateMoments(exp_z0_dist.cpu().numpy(), 4,1)
+                        writer.add_image('in_'+str(i)+'_img', x.cpu().numpy().reshape(1,28,28))
+                        fig = plt.figure()
+                        h1 = plt.plot(np.linspace(0.0, 1.0, 100), exp_z0_dist.cpu().numpy())
+                        ax = plt.gca()
+                        writer.add_figure('in_'+str(i)+'_hist',fig)
+                        fig_2 = plt.figure()
+                        h1 = plt.plot(np.linspace(0.0, 1.0, 100), exp_z63_dist.cpu().numpy())
+                        ax = plt.gca()
+                        writer.add_figure('in_'+str(i)+'_hist',fig_2)
+                        
 
-                x_r, z, z_dist = self.model(x)
-                # z_dist has shape torch.Size([1, 100, 64])
+                        
+                    elif(y.item()==0):
+                        print("OUTLIER")      
+                        exp_z0_dist = torch.exp(z_dist[0, :, 0])
+                        exp_z0_dist /= torch.sum(z_dist[0, :, 0])
+                        exp_z63_dist = torch.exp(z_dist[0, :, 63])
+                        exp_z63_dist /= torch.sum(z_dist[0, :, 63])
+                        # print(exp_z0_dist.size())
+                        # print('z0_dist_exp = ' + str(exp_z0_dist))   
+                        writer.add_image('out_'+str(i)+'_img', x.cpu().numpy().reshape(1,28,28))
+                        fig = plt.figure()
+                        h1 = plt.plot(np.linspace(0.0, 1.0, 100), exp_z0_dist.cpu().numpy())
+                        ax = plt.gca()
+                        writer.add_figure('out_'+str(i)+'_hist',fig) 
+                        # M = generateMoments(exp_z0_dist.cpu().numpy(), 4,1)
+                        lala = False
+
+                    self.loss(x, x_r, z, z_dist)
+
+                    sample_llk[i] = - self.loss.autoregression_loss
+                    sample_rec[i] = - self.loss.reconstruction_loss
+                    sample_y[i] = y.item()
+                print("WRITING")
                 
-                print(y)
-                if(y.item() == 1):
-                    print('z0_dist_shape =' + str(z_dist[0,:,0].size()))
-                    print('z0_dist = ' + str(z_dist[0,:,0]))
-                    print('z1_dist = ' + str(z_dist[0,:,1]))       
-                    exp_z0_dist = F.softmax(z_dist[0, :, 0])
-                    print(exp_z0_dist.size())
-                    print('z0_dist_exp = ' + str(exp_z0_dist))    
-                    M = generateMoments(exp_z0_dist.cpu().numpy(), 4,1)
-                    print(M)
-                    break
-                elif(i==0):
-                    print('z0_dist_shape =' + str(z_dist[0,:,0].size()))
-                    print('z0_dist = ' + str(z_dist[0,:,0]))
-                    print('z1_dist = ' + str(z_dist[0,:,1]))       
-                    exp_z0_dist = F.softmax(z_dist[0, :, 0])
-                    print(exp_z0_dist.size())
-                    print('z0_dist_exp = ' + str(exp_z0_dist))    
-                    M = generateMoments(exp_z0_dist.cpu().numpy(), 4,1)
-                    print(M)
+                writer.close()
+                # Normalize scores
+                sample_llk = normalize(sample_llk, min_llk, max_llk)
+                sample_rec = normalize(sample_rec, min_rec, max_rec)
 
-                self.loss(x, x_r, z, z_dist)
+                # Compute the normalized novelty score
+                sample_ns = novelty_score(sample_llk, sample_rec)
 
-                sample_llk[i] = - self.loss.autoregression_loss
-                sample_rec[i] = - self.loss.reconstruction_loss
-                sample_y[i] = y.item()
+                # Compute AUROC for this class
+                this_class_metrics = [
+                    roc_auc_score(sample_y, sample_llk),  # likelihood metric
+                    roc_auc_score(sample_y, sample_rec),  # reconstruction metric
+                    roc_auc_score(sample_y, sample_ns)    # novelty score
+                ]
+                oc_table.add_row([cl_idx] + this_class_metrics)
 
-            # Normalize scores
-            sample_llk = normalize(sample_llk, min_llk, max_llk)
-            sample_rec = normalize(sample_rec, min_rec, max_rec)
-
-            # Compute the normalized novelty score
-            sample_ns = novelty_score(sample_llk, sample_rec)
-
-            # Compute AUROC for this class
-            this_class_metrics = [
-                roc_auc_score(sample_y, sample_llk),  # likelihood metric
-                roc_auc_score(sample_y, sample_rec),  # reconstruction metric
-                roc_auc_score(sample_y, sample_ns)    # novelty score
-            ]
-            oc_table.add_row([cl_idx] + this_class_metrics)
-
-            all_metrics.append(this_class_metrics)
+                all_metrics.append(this_class_metrics)
 
         # Compute average AUROC and print table
         all_metrics = np.array(all_metrics)

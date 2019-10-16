@@ -43,7 +43,8 @@ def Q(M, z):
 
 
 if __name__ == "__main__":
-    print('main')
+    print('Main')
+    # Code is this main section is intended to test the functions defined above
     x = np.array([0.0021, 0.0022, 0.0023, 0.0023, 0.0031, 0.0040, 0.0052, 0.0068, 0.0110,
         0.0230, 0.0558, 0.0948, 0.1589, 0.2270, 0.2968, 0.3963, 0.4567, 0.5331,
         0.5998, 0.6539, 0.7484, 0.8502, 0.9698, 1.1002, 1.1696, 1.2438, 1.3009,

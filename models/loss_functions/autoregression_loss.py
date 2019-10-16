@@ -50,7 +50,7 @@ class AutoregressionLoss(BaseModule):
                             max=(self.cpd_channels - 1)).long()
         selected = torch.gather(log_z_dist, dim=1, index=index)
         selected = torch.squeeze(selected, dim=1)
-
+    
         # Sum and mean
         S = torch.sum(selected, dim=-1)
         nll = - torch.mean(S)
