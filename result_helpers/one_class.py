@@ -19,11 +19,12 @@ from tensorboardX import SummaryWriter
 import torch.nn.functional as F
 
 import matplotlib.pyplot as plt
+from matplotlib import colors
 plt.switch_backend('agg')
 from SOS.moments import generateMoments
 from visualizator import visualize_img_cpd
 
-writer = SummaryWriter('runs/exp1_inlier')
+writer = SummaryWriter('runs/exp1')
 class OneClassResultHelper(object):
     """
     Performs tests for one-class datasets (MNIST or CIFAR-10).
@@ -88,40 +89,72 @@ class OneClassResultHelper(object):
                     
                     if(y.item() == 1):
                         print("INLIER")     
-                        exp_z0_dist = torch.exp(z_dist[0, :, 0])
-                        exp_z0_dist /= torch.sum(z_dist[0, :, 0])
-                        exp_z63_dist = torch.exp(z_dist[0, :, 63])
-                        exp_z63_dist /= torch.sum(z_dist[0, :, 63])
-                        # print(exp_z0_dist.size())
-                        # print('z0_dist_exp = ' + str(exp_z0_dist))    
-                        # M = generateMoments(exp_z0_dist.cpu().numpy(), 4,1)
-                        writer.add_image('in_'+str(i)+'_img', x.cpu().numpy().reshape(1,28,28))
-                        fig = plt.figure()
-                        h1 = plt.plot(np.linspace(0.0, 1.0, 100), exp_z0_dist.cpu().numpy())
-                        ax = plt.gca()
-                        writer.add_figure('in_'+str(i)+'_hist',fig)
-                        fig_2 = plt.figure()
-                        h1 = plt.plot(np.linspace(0.0, 1.0, 100), exp_z63_dist.cpu().numpy())
-                        ax = plt.gca()
-                        writer.add_figure('in_'+str(i)+'_hist',fig_2)
+                        # print(z_dist_sm.size())
+                        z_d = z.detach()
+                        z_d = z_d.view(len(z_d), -1).contiguous()
+                        idxs_of_bins = torch.clamp(torch.unsqueeze(z_d, dim=1) * 100, min=0,
+                            max=(100 - 1)).long().cpu().numpy().reshape(1,64)
                         
+                        writer.add_image('in/'+str(i)+'/'+'_img', x.cpu().numpy().reshape(1,28,28))
+                        idx_of_bin_repr = np.zeros((100,64), dtype=np.uint8)
+                        idxs_of_bins_np = idxs_of_bins
+                        z_d_np = z_d.cpu().numpy().reshape(1,64)
+                        print("z_n_dp = " + str(z_d_np))
+                        for k in range(0,64):
+                            idx_of_bin_repr[idxs_of_bins_np[0,k], k] = 255
+                            # distributions of z_k
+                            fig = plt.figure()
+                            h1 = plt.plot(np.linspace(0.0,1.0,100), F.softmax(z_dist[0,:,k], dim=0).cpu().numpy())
+                            point_2_draw = np.zeros((1,100))
+                            print(z_d_np[0,k])
+                            point_2_draw[0,int(100*z_d_np[0,k])] = 0.05
+                            plt.stem(np.linspace(0.0,1.0,100),point_2_draw.reshape(100,))
+                            ax = plt.gca()
+                            writer.add_figure('in/'+str(i)+'/'+'hist/'+str(k),fig)
+
+                        fig = plt.figure()
+                        cmap = colors.ListedColormap(['red','blue'])
+                        bounds = [0,255]
+                        norm = colors.BoundaryNorm(bounds, cmap.N)
+                        h1 = plt.imshow(idx_of_bin_repr)
+                        # h1 = plt.plot(np.linspace(0.0, 1.0, 100), exp_z0_dist.cpu().numpy())
+                        ax = plt.gca()
+                        writer.add_figure('in/'+str(i)+'/'+'_z_dist',fig)
 
                         
                     elif(y.item()==0):
                         print("OUTLIER")      
-                        exp_z0_dist = torch.exp(z_dist[0, :, 0])
-                        exp_z0_dist /= torch.sum(z_dist[0, :, 0])
-                        exp_z63_dist = torch.exp(z_dist[0, :, 63])
-                        exp_z63_dist /= torch.sum(z_dist[0, :, 63])
-                        # print(exp_z0_dist.size())
-                        # print('z0_dist_exp = ' + str(exp_z0_dist))   
-                        writer.add_image('out_'+str(i)+'_img', x.cpu().numpy().reshape(1,28,28))
+                        z_d = z.detach()
+                        z_d = z_d.view(len(z_d), -1).contiguous()
+                        idxs_of_bins = torch.clamp(torch.unsqueeze(z_d, dim=1) * 100, min=0,
+                            max=(100 - 1)).long().cpu().numpy().reshape(1,64)
+                        
+                        writer.add_image('out/'+str(i)+'/' +'_img', x.cpu().numpy().reshape(1,28,28))
+                        idx_of_bin_repr = np.zeros((100,64), dtype=np.uint8)
+                        idxs_of_bins_np = idxs_of_bins
+                        z_d_np = z_d.cpu().numpy().reshape(1,64)
+                        print("z_n_dp = " + str(z_d_np))
+                        for k in range(0,64):
+                            print(int(100*z_d_np[0,k]))
+                            idx_of_bin_repr[idxs_of_bins_np[0,k], k] = 255
+                            # distributions of z_k
+                            fig = plt.figure()
+                            h1 = plt.plot(np.linspace(0.0,1.0,100), F.softmax(z_dist[0,:,k], dim=0).cpu().numpy())
+                            point_2_draw = np.zeros((1,100))
+                            point_2_draw[0,int(100*z_d_np[0,k])] = 0.05
+                            plt.stem(np.linspace(0.0,1.0,100),point_2_draw.reshape(100,))
+                            ax = plt.gca()
+                            writer.add_figure('out/'+str(i)+'/' +'hist/'+str(k),fig)
+
                         fig = plt.figure()
-                        h1 = plt.plot(np.linspace(0.0, 1.0, 100), exp_z0_dist.cpu().numpy())
+                        cmap = colors.ListedColormap(['red','blue'])
+                        bounds = [0,255]
+                        norm = colors.BoundaryNorm(bounds, cmap.N)
+                        h1 = plt.imshow(idx_of_bin_repr)
+                        # h1 = plt.plot(np.linspace(0.0, 1.0, 100), exp_z0_dist.cpu().numpy())
+                        
                         ax = plt.gca()
-                        writer.add_figure('out_'+str(i)+'_hist',fig) 
-                        # M = generateMoments(exp_z0_dist.cpu().numpy(), 4,1)
-                        lala = False
+                        writer.add_figure('out/'+str(i)+'/'+'_z_dist',fig)
 
                     self.loss(x, x_r, z, z_dist)
 
