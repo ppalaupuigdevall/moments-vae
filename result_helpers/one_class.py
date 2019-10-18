@@ -22,9 +22,9 @@ import matplotlib.pyplot as plt
 from matplotlib import colors
 plt.switch_backend('agg')
 from SOS.moments import generateMoments
-from visualizator import visualize_img_cpd
+from visualizator import visualize_instance_on_tensorboard
 
-writer = SummaryWriter('runs/exp1')
+writer = SummaryWriter('runs/exp4')
 class OneClassResultHelper(object):
     """
     Performs tests for one-class datasets (MNIST or CIFAR-10).
@@ -86,80 +86,39 @@ class OneClassResultHelper(object):
                     x = x.to('cuda')
                     
                     x_r, z, z_dist = self.model(x) # z_dist has shape torch.Size([1, 100, 64])
-                    
+                    print(i)
                     if(y.item() == 1):
                         print("INLIER")     
-                        # print(z_dist_sm.size())
+                        # # print(z_dist_sm.size())
                         z_d = z.detach()
                         z_d = z_d.view(len(z_d), -1).contiguous()
                         idxs_of_bins = torch.clamp(torch.unsqueeze(z_d, dim=1) * 100, min=0,
-                            max=(100 - 1)).long().cpu().numpy().reshape(1,64)
+                            max=(100 - 1)).long()
                         
-                        writer.add_image('in/'+str(i)+'/'+'_img', x.cpu().numpy().reshape(1,28,28))
-                        idx_of_bin_repr = np.zeros((100,64), dtype=np.uint8)
-                        idxs_of_bins_np = idxs_of_bins
-                        z_d_np = z_d.cpu().numpy().reshape(1,64)
-                        print("z_n_dp = " + str(z_d_np))
-                        for k in range(0,64):
-                            idx_of_bin_repr[idxs_of_bins_np[0,k], k] = 255
-                            # distributions of z_k
-                            fig = plt.figure()
-                            h1 = plt.plot(np.linspace(0.0,1.0,100), F.softmax(z_dist[0,:,k], dim=0).cpu().numpy())
-                            point_2_draw = np.zeros((1,100))
-                            print(z_d_np[0,k])
-                            point_2_draw[0,int(100*z_d_np[0,k])] = 0.05
-                            plt.stem(np.linspace(0.0,1.0,100),point_2_draw.reshape(100,))
-                            ax = plt.gca()
-                            writer.add_figure('in/'+str(i)+'/'+'hist/'+str(k),fig)
-
-                        fig = plt.figure()
-                        cmap = colors.ListedColormap(['red','blue'])
-                        bounds = [0,255]
-                        norm = colors.BoundaryNorm(bounds, cmap.N)
-                        h1 = plt.imshow(idx_of_bin_repr)
-                        # h1 = plt.plot(np.linspace(0.0, 1.0, 100), exp_z0_dist.cpu().numpy())
-                        ax = plt.gca()
-                        writer.add_figure('in/'+str(i)+'/'+'_z_dist',fig)
-
+                        visualize_instance_on_tensorboard(writer,x,idxs_of_bins,z_d,z_dist,i,inlier=True)
                         
+
+
                     elif(y.item()==0):
                         print("OUTLIER")      
                         z_d = z.detach()
                         z_d = z_d.view(len(z_d), -1).contiguous()
                         idxs_of_bins = torch.clamp(torch.unsqueeze(z_d, dim=1) * 100, min=0,
-                            max=(100 - 1)).long().cpu().numpy().reshape(1,64)
+                            max=(100 - 1)).long()
                         
-                        writer.add_image('out/'+str(i)+'/' +'_img', x.cpu().numpy().reshape(1,28,28))
-                        idx_of_bin_repr = np.zeros((100,64), dtype=np.uint8)
-                        idxs_of_bins_np = idxs_of_bins
-                        z_d_np = z_d.cpu().numpy().reshape(1,64)
-                        print("z_n_dp = " + str(z_d_np))
-                        for k in range(0,64):
-                            print(int(100*z_d_np[0,k]))
-                            idx_of_bin_repr[idxs_of_bins_np[0,k], k] = 255
-                            # distributions of z_k
-                            fig = plt.figure()
-                            h1 = plt.plot(np.linspace(0.0,1.0,100), F.softmax(z_dist[0,:,k], dim=0).cpu().numpy())
-                            point_2_draw = np.zeros((1,100))
-                            point_2_draw[0,int(100*z_d_np[0,k])] = 0.05
-                            plt.stem(np.linspace(0.0,1.0,100),point_2_draw.reshape(100,))
-                            ax = plt.gca()
-                            writer.add_figure('out/'+str(i)+'/' +'hist/'+str(k),fig)
-
-                        fig = plt.figure()
-                        cmap = colors.ListedColormap(['red','blue'])
-                        bounds = [0,255]
-                        norm = colors.BoundaryNorm(bounds, cmap.N)
-                        h1 = plt.imshow(idx_of_bin_repr)
-                        # h1 = plt.plot(np.linspace(0.0, 1.0, 100), exp_z0_dist.cpu().numpy())
-                        
-                        ax = plt.gca()
-                        writer.add_figure('out/'+str(i)+'/'+'_z_dist',fig)
-
+                        visualize_instance_on_tensorboard(writer,x,idxs_of_bins,z_d,z_dist,i,inlier=False)
                     self.loss(x, x_r, z, z_dist)
 
                     sample_llk[i] = - self.loss.autoregression_loss
                     sample_rec[i] = - self.loss.reconstruction_loss
+                    if(y.item()==1):
+                        writer.add_scalar('data/reconstruction_eror_in', sample_rec[i],i)
+                        writer.add_scalar('data/llk_error_in', sample_llk[i],i)
+                    else:
+                        writer.add_scalar('data/reconstruction_eror_out', sample_rec[i],i)
+                        writer.add_scalar('data/llk_error_out', sample_llk[i],i)
+                    writer.add_custom_scalars_multilinechart(['data/reconstruction_eror_in', 'data/reconstruction_eror_out'],title='reconstruction error')
+                    writer.add_custom_scalars_multilinechart(['data/llk_error_in', 'data/llk_error_out'], title='llk error')
                     sample_y[i] = y.item()
                 print("WRITING")
                 
