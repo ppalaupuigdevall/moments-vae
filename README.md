@@ -2,7 +2,8 @@
 
 ## TODO list
 
-* (1) Generalize the computation of M and the evaluation of Q 
+* (1) CHECK and Generalize the computation of M and the evaluation of Q (Go to exp4 below)
+    * (1.1) Make toy example to check it works
 * (2) Reorganize code in visualizator to make just visualizations, not computations (@marinalpo)
 * (3) When (1) is finished, check results of Q for a matrix with more moments than just 4
 
