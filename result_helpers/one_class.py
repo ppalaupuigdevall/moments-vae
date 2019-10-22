@@ -24,7 +24,7 @@ plt.switch_backend('agg')
 from SOS.moments import generateMoments
 from visualizator import visualize_instance_on_tensorboard
 
-writer = SummaryWriter('runs/exp4')
+writer = SummaryWriter('runs/exp5')
 class OneClassResultHelper(object):
     """
     Performs tests for one-class datasets (MNIST or CIFAR-10).
