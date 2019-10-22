@@ -28,7 +28,7 @@ def generateMoments(hist, ord, d):
     z = np.linspace(0.0,1.0,len(hist))
     a = np.zeros(ord+1)
     for i in range(0,ord +1):
-        a[i] = np.average((z**i)*hist)
+        a[i] = np.sum((z**i)*hist)
     M = np.zeros((s_nd, s_nd))
     for i in range(0, s_nd):
         for j in range(0, s_nd):
