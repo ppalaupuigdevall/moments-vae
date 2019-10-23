@@ -19,6 +19,7 @@ import numpy as np
 import torch
 from scipy.special import comb
 import matplotlib.pyplot as plt
+import scipy.stats as ss
 
 def generateMoments(hist, ord, d):
     """
@@ -33,7 +34,8 @@ def generateMoments(hist, ord, d):
     for i in range(0, s_nd):
         for j in range(0, s_nd):
             M[i,j] = a[i+j]
-    print(M.shape)
+    print("Moment matrix")
+    print(M)
     return M
 
 
@@ -41,33 +43,39 @@ def Q(M, z):
     
     z = z.reshape(len(z),1)
     M_inv = np.linalg.inv(M)
+    
+    
+    veronese = np.zeros((len(z), M.shape[0]))
 
-    veronese = np.array([[np.ones((z.shape[0],1))],[z],[z**2]]).reshape(len(z),3)
-    veronese_T = veronese.copy().T
+    for i in range(0, M.shape[0]):
+        
+        veronese[:,i] = (z**i).reshape(len(z))
    
+    veronese_T = veronese.T
+
     q_eval = np.matmul(veronese,np.matmul(M_inv, veronese_T))
-    q_eval = np.sum(q_eval, axis=0)
-    return q_eval
+    # q_eval = np.sum(q_eval, axis=0) # This was wrong, we just have to keep the i,i value of q_eval
+    q_final = q_eval.diagonal()
+    return q_final
 
 
 if __name__ == "__main__":
     print('Main')
     # Code is this main section is intended to test the functions defined above
     
-    x = np.random.normal(0.5,0.1,10000)
+    x = np.random.normal(0.5,0.1,20000)
     
     
     hist, x_axis, _ = plt.hist(x, bins = 100)
     
     print(x_axis.shape)
 
-    
     x_axis = x_axis[:-1]
     print(x)
     hist = hist/np.sum(hist)
     print(x)
     print(hist)
-    M = generateMoments(hist, 4,1)
+    M = generateMoments(hist, 2,1)
     print('M' + str(M))
     q_eval = Q(M, x_axis)
     print(q_eval)
@@ -76,4 +84,41 @@ if __name__ == "__main__":
     plt.subplot(212)
     plt.plot(x_axis, q_eval)
     plt.show()
+
+    # Set-up.
+    n = 20000
+    np.random.seed(0x5eed)
+    # Parameters of the mixture components
+    norm_params = np.array([[0, 0.1],
+                            [1, 0.2]])
+                            # [9, 1.3]])
+    n_components = norm_params.shape[0]
+    # Weight of each component, in this case all of them are 1/3
+    weights = np.ones(n_components, dtype=np.float64) / 2.0
     
+    # A stream of indices from which to choose the component
+    mixture_idx = np.random.choice(len(weights), size=n, replace=True, p=weights)
+    # y is the mixture sample
+    x = np.fromiter((ss.norm.rvs(*(norm_params[i])) for i in mixture_idx),
+                    dtype=np.float64)
+    
+    hist, x_axis, _ = plt.hist(x, bins = 2000)
+    
+    print(x_axis.shape)
+
+    x_axis = x_axis[:-1]
+    print(x)
+    hist = hist/np.sum(hist)
+    print(x)
+    print(hist)
+    M = generateMoments(hist,16,1)
+    print('M' + str(M))
+    q_eval = Q(M, x_axis)
+    print(q_eval)
+    plt.subplot(211)
+    plt.plot(x_axis, hist)
+    plt.subplot(212)
+    plt.plot(x_axis, np.log(q_eval))
+    # plt.plot(x_axis, q_eval)
+
+    plt.show()
