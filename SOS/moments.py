@@ -66,7 +66,7 @@ if __name__ == "__main__":
     x = np.random.normal(0.5,0.1,20000)
     
     
-    hist, x_axis, _ = plt.hist(x, bins = 100)
+    hist, x_axis, _ = plt.hist(x, bins = 200)
     
     print(x_axis.shape)
 
@@ -75,13 +75,15 @@ if __name__ == "__main__":
     hist = hist/np.sum(hist)
     print(x)
     print(hist)
-    M = generateMoments(hist, 2,1)
+    M = generateMoments(hist, 4,1)
     print('M' + str(M))
     q_eval = Q(M, x_axis)
     print(q_eval)
     plt.subplot(211)
+    plt.title("Gaussian Distr. mu=0.5, ss=0.1")
     plt.plot(x_axis, hist)
     plt.subplot(212)
+    plt.title("Q(x) with M4")
     plt.plot(x_axis, q_eval)
     plt.show()
 
@@ -111,13 +113,15 @@ if __name__ == "__main__":
     hist = hist/np.sum(hist)
     print(x)
     print(hist)
-    M = generateMoments(hist,16,1)
+    M = generateMoments(hist,2,1)
     print('M' + str(M))
     q_eval = Q(M, x_axis)
     print(q_eval)
     plt.subplot(211)
+    plt.title("mixture of gaussians")
     plt.plot(x_axis, hist)
     plt.subplot(212)
+    plt.title("log(Q(x)) with M2")
     plt.plot(x_axis, np.log(q_eval))
     # plt.plot(x_axis, q_eval)
 
