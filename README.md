@@ -2,8 +2,14 @@
 
 ## TODO list
 
-* (1) CHECK and Generalize the computation of M and the evaluation of Q (Go to exp4 below)
-    * (1.1) Make toy example to check it works
+* (1) ~~CHECK and Generalize the computation of M and the evaluation of Q (Go to exp4 below)~~
+    * (1.1) ~~Make toy example to check it works~~
+    <img width="625" alt="Gaussian M2" src="https://user-images.githubusercontent.com/29488113/67434449-4318d800-f5b8-11e9-8437-0e398e78fbb8.png">
+    <img width="667" alt="Gaussian M4" src="https://user-images.githubusercontent.com/29488113/67434479-4f049a00-f5b8-11e9-9b3b-c0b0e76ad01f.png">
+    <img width="667" alt="mixture M2" src="https://user-images.githubusercontent.com/29488113/67434532-6a6fa500-f5b8-11e9-8793-46e1a92a5ace.png">
+    <img width="707" alt="mixture M4" src="https://user-images.githubusercontent.com/29488113/67434559-73607680-f5b8-11e9-99e0-b24a9185594f.png">
+
+    
 * (2) Reorganize code in visualizator to make just visualizations, not computations (@marinalpo)
 * (3) When (1) is finished, check results of Q for a matrix with more moments than just 4
 
