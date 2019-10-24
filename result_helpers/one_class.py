@@ -24,7 +24,7 @@ plt.switch_backend('agg')
 from SOS.moments import generateMoments
 from visualizator import visualize_instance_on_tensorboard
 
-writer = SummaryWriter('runs/exp5')
+writer = SummaryWriter('runs/exp_cifar10_10')
 class OneClassResultHelper(object):
     """
     Performs tests for one-class datasets (MNIST or CIFAR-10).
@@ -63,7 +63,7 @@ class OneClassResultHelper(object):
 
         # Start iteration over classes
         for cl_idx, cl in enumerate(self.dataset.test_classes):
-            if(cl_idx == 1):
+            if(cl_idx == 2):
                 lala = True
                 print('cl_idx ' +str(cl_idx))
                 print('cl '+ str(cl))
@@ -86,7 +86,7 @@ class OneClassResultHelper(object):
                     x = x.to('cuda')
                     
                     x_r, z, z_dist = self.model(x) # z_dist has shape torch.Size([1, 100, 64])
-                    print(i)
+                    print("y.item() = " + str(y.item()))
                     if(y.item() == 1):
                         print("INLIER")     
                         # # print(z_dist_sm.size())
@@ -97,8 +97,6 @@ class OneClassResultHelper(object):
                         
                         visualize_instance_on_tensorboard(writer,x,idxs_of_bins,z_d,z_dist,i,inlier=True)
                         
-
-
                     elif(y.item()==0):
                         print("OUTLIER")      
                         z_d = z.detach()

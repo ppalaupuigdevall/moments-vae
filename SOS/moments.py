@@ -34,8 +34,8 @@ def generateMoments(hist, ord, d):
     for i in range(0, s_nd):
         for j in range(0, s_nd):
             M[i,j] = a[i+j]
-    print("Moment matrix")
-    print(M)
+    # print("Moment matrix")
+    # print(M)
     return M
 
 
@@ -65,28 +65,27 @@ if __name__ == "__main__":
     
     x = np.random.normal(0.5,0.1,20000)
     
-    
     hist, x_axis, _ = plt.hist(x, bins = 200)
     
-    print(x_axis.shape)
-
     x_axis = x_axis[:-1]
-    print(x)
     hist = hist/np.sum(hist)
-    print(x)
-    print(hist)
-    M = generateMoments(hist, 4,1)
-    print('M' + str(M))
+    ord_g = 4
+    M = generateMoments(hist, ord_g,1)
+    magic_q = comb(1+ord_g, 1)
+    print(magic_q)
     q_eval = Q(M, x_axis)
-    print(q_eval)
+    
     plt.subplot(211)
     plt.title("Gaussian Distr. mu=0.5, ss=0.1")
     plt.plot(x_axis, hist)
     plt.subplot(212)
-    plt.title("Q(x) with M4")
+    plt.title("Q(x) with M"+str(ord_g))
     plt.plot(x_axis, q_eval)
+    plt.plot(x_axis, magic_q*np.ones(len(x_axis)))
     plt.show()
 
+
+    # MIXTURE OF GAUSSIANS
     # Set-up.
     n = 20000
     np.random.seed(0x5eed)
@@ -105,24 +104,22 @@ if __name__ == "__main__":
                     dtype=np.float64)
     
     hist, x_axis, _ = plt.hist(x, bins = 2000)
-    
-    print(x_axis.shape)
 
     x_axis = x_axis[:-1]
-    print(x)
+
     hist = hist/np.sum(hist)
-    print(x)
-    print(hist)
-    M = generateMoments(hist,2,1)
-    print('M' + str(M))
+    ord_m = 12
+    M = generateMoments(hist,ord_m,1)
+
     q_eval = Q(M, x_axis)
-    print(q_eval)
+
     plt.subplot(211)
     plt.title("mixture of gaussians")
     plt.plot(x_axis, hist)
     plt.subplot(212)
-    plt.title("log(Q(x)) with M2")
+    plt.title("log(Q(x)) with M"+str(ord_m))
     plt.plot(x_axis, np.log(q_eval))
+    plt.plot(x_axis, np.log(magic_q)*np.ones(len(x_axis)))
     # plt.plot(x_axis, q_eval)
 
     plt.show()

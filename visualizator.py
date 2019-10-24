@@ -24,7 +24,7 @@ def visualize_instance_on_tensorboard(writer,x,idxs_of_bins,z_d,z_dist,i,inlier=
         likelihood = torch.sum(selected, dim=-1)
         likelihood = likelihood.cpu().item()
         writer.add_scalar('data/likelihood_inliers', likelihood, i)
-        writer.add_image('in/'+str(i)+'/'+'_img___p_z = '+'{:.1f}'.format(likelihood), x.cpu().numpy().reshape(1,28,28))
+        writer.add_image('in/'+str(i)+'/'+'_img___p_z = '+'{:.1f}'.format(likelihood), x.cpu().numpy().reshape(x.size()[1],x.size()[2], x.size()[3]))
         
 
         idxs_of_bins = idxs_of_bins.cpu().numpy().reshape(1,64)
@@ -38,23 +38,23 @@ def visualize_instance_on_tensorboard(writer,x,idxs_of_bins,z_d,z_dist,i,inlier=
             fig = plt.figure()
             # This distribution is p(zi)
             distribution = F.softmax(z_dist[0,:,k], dim=0).cpu().numpy()
-            M = generateMoments(distribution, 4, 1)
+            M = generateMoments(distribution, 10, 1)
             cristofel = Q(M,np.linspace(0.0,1.0,100))
-
+            plt.subplot(211)
             
             h1 = plt.plot(np.linspace(0.0,1.0,100), distribution)
             
             point_2_draw = np.zeros((1,100))
             
-            point_2_draw[0,int(100*z_d_np[0,k])] = 0.1
+            point_2_draw[0,int(100*z_d_np[0,k])] = 0.01
             plt.stem(np.linspace(0.0,1.0,100),point_2_draw.reshape(100,))
             ax = plt.gca()
             # writer.add_figure('in/'+str(i)+'/'+'hist/'+str(k),fig)
-            writer.add_figure('in/'+'hist/'+str(k),fig)
-            fig = plt.figure()
-            plt.plot(np.linspace(0.0,1.0,100), cristofel)
-            writer.add_figure('in/'+'hist/'+str(k)+'Q(z)',fig)
-
+            plt.subplot(212)
+            # fig = plt.figure()
+            plt.plot(np.linspace(0.0,1.0,100), np.log(cristofel))
+            # writer.add_figure('in/'+'hist/'+str(k)+'Q(z)',fig)
+            writer.add_figure('in/'+'hist/'+str(k),fig,i)
 
         fig = plt.figure()
         cmap = colors.ListedColormap(['red','blue'])
@@ -74,7 +74,7 @@ def visualize_instance_on_tensorboard(writer,x,idxs_of_bins,z_d,z_dist,i,inlier=
         likelihood = likelihood.cpu().item()
         idxs_of_bins = idxs_of_bins.cpu().numpy().reshape(1,64)
         writer.add_scalar('data/likelihood_outliers', likelihood, i)
-        writer.add_image('out/'+str(i)+'/' +'_img___pz_ = '+'{:.1f}'.format(likelihood), x.cpu().numpy().reshape(1,28,28))
+        writer.add_image('out/'+str(i)+'/' +'_img___pz_ = '+'{:.1f}'.format(likelihood), x.cpu().numpy().reshape(x.size()[1],x.size()[2], x.size()[3]))
         idx_of_bin_repr = np.zeros((100,64), dtype=np.uint8)
         idxs_of_bins_np = idxs_of_bins
         z_d_np = z_d.cpu().numpy().reshape(1,64)
@@ -85,21 +85,23 @@ def visualize_instance_on_tensorboard(writer,x,idxs_of_bins,z_d,z_dist,i,inlier=
             
             fig = plt.figure()
             distribution = F.softmax(z_dist[0,:,k], dim=0).cpu().numpy()
-            M = generateMoments(distribution, 4, 1)
+            M = generateMoments(distribution, 10, 1)
             cristofel = Q(M,np.linspace(0.0,1.0,100))
-            
+            plt.subplot(211)
             h1 = plt.plot(np.linspace(0.0,1.0,100), distribution)
             
 
             point_2_draw = np.zeros((1,100))
-            point_2_draw[0,int(100*z_d_np[0,k])] = 0.1
+            point_2_draw[0,int(100*z_d_np[0,k])] = 0.01
             plt.stem(np.linspace(0.0,1.0,100),point_2_draw.reshape(100,))
             ax = plt.gca()
             # writer.add_figure('out/'+str(i)+'/' +'hist/'+str(k),fig)
-            writer.add_figure('out/'+'hist/'+str(k),fig)
-            fig = plt.figure()
-            plt.plot(np.linspace(0.0,1.0,100), cristofel)
-            writer.add_figure('out/'+'hist/'+str(k)+'Q(z)',fig)
+            
+            # fig = plt.figure()
+            plt.subplot(212)
+            plt.plot(np.linspace(0.0,1.0,100), np.log(cristofel))
+            # writer.add_figure('out/'+'hist/'+str(k)+'Q(z)',fig)
+            writer.add_figure('out/'+'hist/'+str(k),fig,i)
 
         fig = plt.figure()
         cmap = colors.ListedColormap(['red','blue'])
