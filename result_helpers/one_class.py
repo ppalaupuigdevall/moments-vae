@@ -17,13 +17,14 @@ from utils import normalize
 from tensorboardX import SummaryWriter
 
 import torch.nn.functional as F
-
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import colors
-plt.switch_backend('agg')
+matplotlib.use("agg")
 from SOS.moments import generateMoments
+from SOS.moments import Q
 from visualizator import visualize_instance_on_tensorboard
-
+from scipy.special import comb
 writer = SummaryWriter('runs/exp_cifar10_10')
 class OneClassResultHelper(object):
     """
@@ -81,45 +82,92 @@ class OneClassResultHelper(object):
                 sample_llk = np.zeros(shape=(len(loader),))
                 sample_rec = np.zeros(shape=(len(loader),))
                 sample_y = np.zeros(shape=(len(loader),))
+                print("Length of the dataset = " + str(len(self.dataset)))
+                
+                labels = np.zeros((len(self.dataset)))
+
+                for i, (x, y) in tqdm(enumerate(loader), desc=f'Computing scores for {self.dataset}'):
+                    labels[i] = y.item()
+                print(labels)
+                print(np.where(labels==0))
+                labels_inliers = np.zeros((len(np.where(labels==1)[0])))
+                labels_outliers = np.zeros((len(np.where(labels==0)[0])))
+
+                zs_in = np.empty((64,len(labels_inliers)))
+                zs_out = np.empty((64, len(labels_outliers)))
+                print("number of inliers = " + str(len(labels_inliers)))
+                print("number of outliers = " + str(len(labels_outliers)))
+                count_in = 0
+                count_out = 0
 
                 for i, (x, y) in tqdm(enumerate(loader), desc=f'Computing scores for {self.dataset}'):
                     x = x.to('cuda')
                     
                     x_r, z, z_dist = self.model(x) # z_dist has shape torch.Size([1, 100, 64])
-                    print("y.item() = " + str(y.item()))
+
+                    
+                    print(i)
+                    # print("y.item() = " + str(y.item()))
                     if(y.item() == 1):
-                        print("INLIER")     
-                        # # print(z_dist_sm.size())
-                        z_d = z.detach()
-                        z_d = z_d.view(len(z_d), -1).contiguous()
-                        idxs_of_bins = torch.clamp(torch.unsqueeze(z_d, dim=1) * 100, min=0,
-                            max=(100 - 1)).long()
+                        zs_in[:,count_in] = z.cpu().numpy()
+                        count_in += 1
+                    else:
+                        zs_out[:,count_out] = z.cpu().numpy()
+                        count_out += 1
+                    #     print("INLIER")     
+                    #     # # print(z_dist_sm.size())
+                    #     z_d = z.detach()
+                    #     z_d = z_d.view(len(z_d), -1).contiguous()
+                    #     idxs_of_bins = torch.clamp(torch.unsqueeze(z_d, dim=1) * 100, min=0,
+                    #         max=(100 - 1)).long()
                         
-                        visualize_instance_on_tensorboard(writer,x,idxs_of_bins,z_d,z_dist,i,inlier=True)
+                    #     visualize_instance_on_tensorboard(writer,x,idxs_of_bins,z_d,z_dist,i,inlier=True)
                         
-                    elif(y.item()==0):
-                        print("OUTLIER")      
-                        z_d = z.detach()
-                        z_d = z_d.view(len(z_d), -1).contiguous()
-                        idxs_of_bins = torch.clamp(torch.unsqueeze(z_d, dim=1) * 100, min=0,
-                            max=(100 - 1)).long()
+                    # elif(y.item()==0):
+                    #     print("OUTLIER")      
+                    #     z_d = z.detach()
+                    #     z_d = z_d.view(len(z_d), -1).contiguous()
+                    #     idxs_of_bins = torch.clamp(torch.unsqueeze(z_d, dim=1) * 100, min=0,
+                    #         max=(100 - 1)).long()
                         
-                        visualize_instance_on_tensorboard(writer,x,idxs_of_bins,z_d,z_dist,i,inlier=False)
-                    self.loss(x, x_r, z, z_dist)
+                    #     visualize_instance_on_tensorboard(writer,x,idxs_of_bins,z_d,z_dist,i,inlier=False)
+                    # self.loss(x, x_r, z, z_dist)
 
                     sample_llk[i] = - self.loss.autoregression_loss
                     sample_rec[i] = - self.loss.reconstruction_loss
-                    if(y.item()==1):
-                        writer.add_scalar('data/reconstruction_eror_in', sample_rec[i],i)
-                        writer.add_scalar('data/llk_error_in', sample_llk[i],i)
-                    else:
-                        writer.add_scalar('data/reconstruction_eror_out', sample_rec[i],i)
-                        writer.add_scalar('data/llk_error_out', sample_llk[i],i)
-                    writer.add_custom_scalars_multilinechart(['data/reconstruction_eror_in', 'data/reconstruction_eror_out'],title='reconstruction error')
-                    writer.add_custom_scalars_multilinechart(['data/llk_error_in', 'data/llk_error_out'], title='llk error')
+                    # if(y.item()==1):
+                    #     writer.add_scalar('data/reconstruction_eror_in', sample_rec[i],i)
+                    #     writer.add_scalar('data/llk_error_in', sample_llk[i],i)
+                    # else:
+                    #     writer.add_scalar('data/reconstruction_eror_out', sample_rec[i],i)
+                    #     writer.add_scalar('data/llk_error_out', sample_llk[i],i)
+                    # writer.add_custom_scalars_multilinechart(['data/reconstruction_eror_in', 'data/reconstruction_eror_out'],title='reconstruction error')
+                    # writer.add_custom_scalars_multilinechart(['data/llk_error_in', 'data/llk_error_out'], title='llk error')
                     sample_y[i] = y.item()
+                np.save('/data/Ponc/zs_2_in.npy',zs_in)
+                np.save('/data/Ponc/zs_2_out.npy',zs_out)
+
                 print("WRITING")
+                hist, x_axis, _ = plt.hist(zs[0,:], bins = 100)
+                x_axis = x_axis[:-1]
+                hist = hist/np.sum(hist)
+                ord_g = 4
+                M = generateMoments(hist, ord_g,1)
+                magic_q = comb(1+ord_g, 1)
+
+                print(magic_q)
+                q_eval = Q(M, x_axis)
                 
+                plt.subplot(211)
+                plt.title("Gaussian Distr. mu=0.5, ss=0.1")
+                plt.plot(x_axis, hist)
+                plt.subplot(212)
+                plt.title("Q(x) with M"+str(ord_g))
+                plt.plot(x_axis, q_eval)
+                plt.plot(x_axis, magic_q*np.ones(len(x_axis)))
+                plt.show()
+
+
                 writer.close()
                 # Normalize scores
                 sample_llk = normalize(sample_llk, min_llk, max_llk)

@@ -71,11 +71,12 @@ def veronese_nk(x, n, if_cuda=False, if_coffiecnt=False):
 
 
 if __name__ == "__main__":
-    d = 1
-    x = torch.randn([1,d])
+    d = 4
+    x = torch.randn([4,d])
     print(x)
     x1 = torch.cat([torch.ones([1, d]), x])
-    n = 2 # degree of the polynomial
-    y, p = veronese_nk(x1, n, if_coffiecnt=False)
+    # print(x1)
+    n = 5 # degree of the polynomial
+    y, p = veronese_nk(x, n, if_coffiecnt=False)
     print(y)
     print(p)

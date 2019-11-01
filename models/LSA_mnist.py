@@ -172,7 +172,7 @@ class LSAMNIST(BaseModule):
 
         # Produce representations
         z = self.encoder(h)
-
+        
         # Estimate CPDs with autoregression
         z_dist = self.estimator(z)
         # print(z_dist.size()) # torch.Size([1, 100, 64])

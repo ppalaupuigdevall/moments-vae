@@ -33,28 +33,19 @@ def generateMoments(hist, ord, d):
     M = np.zeros((s_nd, s_nd))
     for i in range(0, s_nd):
         for j in range(0, s_nd):
-            M[i,j] = a[i+j]
-    # print("Moment matrix")
-    # print(M)
+            M[i,j] = a[i+j] 
     return M
 
 
 def Q(M, z):
-    
     z = z.reshape(len(z),1)
     M_inv = np.linalg.inv(M)
-    
-    
     veronese = np.zeros((len(z), M.shape[0]))
-
     for i in range(0, M.shape[0]):
-        
         veronese[:,i] = (z**i).reshape(len(z))
-   
     veronese_T = veronese.T
-
     q_eval = np.matmul(veronese,np.matmul(M_inv, veronese_T))
-    # q_eval = np.sum(q_eval, axis=0) # This was wrong, we just have to keep the i,i value of q_eval
+    # This was wrong, we just have to keep the i,i value of q_eval
     q_final = q_eval.diagonal()
     return q_final
 
