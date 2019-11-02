@@ -12,6 +12,7 @@
     
 * (2) Reorganize code in visualizator to make just visualizations, not computations (@marinalpo)
 * (3) When (1) is finished, check results of Q for a matrix with more moments than just 4
+* (4) Create the code that does the management of which zs should be picked to compute the Q_loss. 
 
 ## Results
 
