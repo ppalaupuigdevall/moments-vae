@@ -70,13 +70,39 @@ def veronese_nk(x, n, if_cuda=False, if_coffiecnt=False):
     return y, powers
 
 
+
+def generate_veronese(x, n):
+    """Concatenates the results of veronese_nk function to generate the complete veronese map of x
+        @param x: Matrix (dim, npoints)
+        @param n: the veronese map will be up to degree n
+        
+        Output: the complete veronese map of x
+        Example:
+        if x is a two dimensional vector x = [x1 x2]
+        generate_veronese(x, 2) ==> [1 x1 x2 x1^2 x1*x2 x2^2]
+        generate_veronese(x, 3) ==> [1 x1 x2 x1^2 x1*x2 x2^2 x1^3 x1^2*x2 x1*x2^2 x2^3]
+    """
+    v_x = x
+    p_x = None
+    for i in range(0,n-1):
+        v_x_n, p_n = veronese_nk(x, i+2, if_coffiecnt=False)
+        v_x = torch.cat([v_x, v_x_n], dim=0)
+    
+    v_x = torch.cat([torch.ones(1,v_x.size()[1]), v_x])
+    return v_x, p_x
+
+
 if __name__ == "__main__":
     d = 4
-    x = torch.randn([4,d])
+
+    
+    x = torch.rand([2,d])
     print(x)
     x1 = torch.cat([torch.ones([1, d]), x])
-    # print(x1)
-    n = 5 # degree of the polynomial
+    print(x1)
+    n = 3 # degree of the polynomial, this will generate a moment matrix up to 2*n
     y, p = veronese_nk(x, n, if_coffiecnt=False)
     print(y)
     print(p)
+    bla, blu = generate_veronese(x,n)
+    print(bla)
