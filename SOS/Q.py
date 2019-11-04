@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
-from veronese import generate_veronese as generate_veronese
+from SOS.veronese import generate_veronese as generate_veronese
 
 
-class Q_loss(nn.Module):
+class Q(nn.Module):
     """
     This loss is used to learn the inverse of the matrix of moments.
     Since Q(x) is low when evaluating the veronese map of an inlier and high for an outlier, we'll try
@@ -16,7 +16,7 @@ class Q_loss(nn.Module):
         x_size = vector_size, [x1 x2 ... xd]
         n = moment degree up to n
         """
-        super(Q_loss, self).__init__()
+        super(Q, self).__init__()
         self.n = n
         # Dummy vector to know the exact size of the veronese
         dummy = torch.rand([x_size, 1]) # 2 dummy points of size x_size
@@ -28,12 +28,14 @@ class Q_loss(nn.Module):
     def forward(self, x):
         
         npoints, dims = x.size()
-        v_x, _ = generate_veronese(x.view(dims, npoints), self.n)
+        v_x, _ = generate_veronese(x.view(dims, npoints).cpu(), self.n)
+        v_x = v_x.cuda()
         x = self.B(v_x.t_(), v_x)
-        x = torch.abs(x)
-        x = torch.sum(x)
+        # x = torch.abs(x)
+        # x = torch.sum(x) # RECORDATORI: Realment aixo no va aqui, aixo es la loss function, el que passa es que el modul q despres anira a una L1 loss
         
         return x
+
 
 
 if __name__ == '__main__':
@@ -42,8 +44,7 @@ if __name__ == '__main__':
     b = torch.rand([bs, dims])
     print(b)
     # Define a loss module
-    q_lo = Q_loss(dims, 2)
+    q_lo = Q(dims, 2)
     
-    valordelaloss = q_lo(b)
+    valordelaloss = torch.sum(torch.abs(q_lo(b)))
     valordelaloss.backward()
-    

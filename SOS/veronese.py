@@ -41,6 +41,7 @@ def veronese_nk(x, n, if_cuda=False, if_coffiecnt=False):
     powers = exponent_nk(n, K)
     if if_cuda:
         powers = torch.tensor(powers, dtype=torch.float).cuda()
+        
     else:
         powers = torch.tensor(powers, dtype=torch.float)
     if n == 0:
@@ -85,7 +86,7 @@ def generate_veronese(x, n):
     v_x = x
     p_x = None
     for i in range(0,n-1):
-        v_x_n, p_n = veronese_nk(x, i+2, if_coffiecnt=False)
+        v_x_n, p_n = veronese_nk(x, i+2,if_cuda=False,if_coffiecnt=False,)
         v_x = torch.cat([v_x, v_x_n], dim=0)
     
     v_x = torch.cat([torch.ones(1,v_x.size()[1]), v_x])

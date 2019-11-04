@@ -1,35 +1,37 @@
+import sys
+sys.path.append("/home/ppalau/moments-vae/")
+
 from functools import reduce
 from operator import mul
 from typing import Tuple
 
-import torch
-import torch.nn as nn
+
 
 from models.base import BaseModule
 from models.blocks_2d import DownsampleBlock
 from models.blocks_2d import UpsampleBlock
 from models.estimator_1D import Estimator1D
 
+from SOS.Q import Q
+
+import torch
+import torch.nn as nn
+
+
+
 
 class Encoder(BaseModule):
-    """
-    MNIST model encoder.
-    """
+    """Mnist encoder"""
+
+
     def __init__(self, input_shape, code_length):
-        # type: (Tuple[int, int, int], int) -> None
-        """
-        Class constructor:
-
-        :param input_shape: the shape of MNIST samples.
-        :param code_length: the dimensionality of latent vectors.
-        """
         super(Encoder, self).__init__()
-
+        
         self.input_shape = input_shape
         self.code_length = code_length
 
-        c, h, w = input_shape # 1, 28, 28
-      
+        c, h, w = input_shape #1, 28, 28
+        
         activation_fn = nn.LeakyReLU()
 
         # Convolutional network
@@ -64,6 +66,7 @@ class Encoder(BaseModule):
         o = self.fc(h) # o is 1, 64
 
         return o
+
 
 
 class Decoder(BaseModule):
@@ -121,63 +124,43 @@ class Decoder(BaseModule):
         return o
 
 
-class LSAMNIST(BaseModule):
-    """
-    LSA model for MNIST one-class classification.
-    """
-    def __init__(self,  input_shape, code_length, cpd_channels):
-        # type: (Tuple[int, int, int], int, int) -> None
-        """
-        Class constructor.
+class QMNIST(BaseModule):
 
-        :param input_shape: the shape of MNIST samples.
-        :param code_length: the dimensionality of latent vectors.
-        :param cpd_channels: number of bins in which the multinomial works.
-        """
-        super(LSAMNIST, self).__init__()
+    def __init__(self, input_shape, code_length, num_chunks):
+        super(QMNIST, self).__init__()
 
         self.input_shape = input_shape
         self.code_length = code_length
-        self.cpd_channels = cpd_channels
+        self.num_chunks = num_chunks
 
-        # Build encoder
+        # Encoder
         self.encoder = Encoder(
             input_shape=input_shape,
             code_length=code_length
         )
 
-        # Build decoder
+        # Decoder
         self.decoder = Decoder(
-            code_length=code_length,
-            deepest_shape=self.encoder.deepest_shape,
-            output_shape=input_shape
+            code_length = code_length,
+            deepest_shape = self.encoder.deepest_shape,
+            output_shape = input_shape
         )
 
-        # Build estimator
-        self.estimator = Estimator1D(
-            code_length=code_length,
-            fm_list=[32, 32, 32, 32],
-            cpd_channels=cpd_channels
-        )
-
+        # Outlier detector
+        self.Q = Q(self.code_length, 2)
+    
     def forward(self, x):
-        # type: (torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
-        """
-        Forward propagation.
-
-        :param x: the input batch of images.
-        :return: a tuple of torch.Tensors holding reconstructions, latent vectors and CPD estimates.
-        """
-        h = x
-
-        # Produce representations
-        z = self.encoder(h)
         
-        # Estimate CPDs with autoregression
-        z_dist = self.estimator(z)
-        # print(z_dist.size()) # torch.Size([1, 100, 64])
-        # Reconstruct x
-        x_r = self.decoder(z)
-        x_r = x_r.view(-1, *self.input_shape)
+        z = self.encoder(x)
+        q = self.Q(z)
+        rec = self.decoder(z)
+        return z, q, rec
 
-        return x_r, z, z_dist
+
+if __name__ == '__main__':
+    net = QMNIST((1,28,28), 16, 1)
+    x = torch.rand([10, 1, 28, 28])
+    encoding, q_val, rec = net(x)
+    print(encoding.size())
+    print(q_val)
+    print(rec.size())
