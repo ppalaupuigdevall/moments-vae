@@ -12,6 +12,7 @@
     
 * (2) Reorganize code in visualizator to make just visualizations, not computations (@marinalpo)
 * (3) When (1) is finished, check results of Q for a matrix with more moments than just 4
+* (4) Create the code that does the management of which zs should be picked to compute the Q_loss. 
 
 ## Results
 
@@ -50,8 +51,4 @@ The different distribution for different z_i *OUTLIER CASE*
 
 <img width="1755" alt="Screen Shot 2019-10-18 at 4 20 33 PM" src="https://user-images.githubusercontent.com/29488113/67125613-3b75bf80-f1c3-11e9-86f8-67d4df36920f.png">
 
-### Exp4
 
-The purpose of exp4 was to approximate the distribution of different zi with the matrix of moments, then find outliers using Q (cristoffel polynomial). ***IT DOES NOT WORK AND OCTAVIA SAID THAT MAYBE THERE IS A NUMERICAL PROBLEM WITH THE INVERSE OF THE MOMENT MATRIX***
-
-<img width="640" alt="Screen Shot 2019-10-18 at 4 39 10 PM" src="https://user-images.githubusercontent.com/29488113/67126799-f30bd100-f1c5-11e9-86dd-5eca8e6acdbb.png">
