@@ -1,30 +1,32 @@
 import torch
 import torchvision
+from torchvision import transforms
 import numpy as np
 from models.Q_mnist import QMNIST
 from tensorboardX import SummaryWriter
 
-def print_losses(rec, q, tot):
-    print("REC = {0:.2f} | Q = {0:.2f}  | TOTAL = {0:.2f} ".format(rec, q, tot))
+
+def print_losses(rec, q, tot, numerador, denominador):
+    print("{:0.2f}%  REC = {:0.2f} | Q = {:0.2f}  | TOTAL = {:0.2f} ".format((numerador/denominador)*100.0,rec, q, tot))
 
 
 # TensorboardX
 writer = SummaryWriter('runs/learn_M')
 
 
-# DATASETS
-mnist = torchvision.datasets.MNIST('data/MNIST', train=True, download=True)
+# DATASETS & DATALOADERS
+mnist = torchvision.datasets.MNIST('data/MNIST', train=True, download=True, transform=transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))]))
 # Select the digit we are considering as inlier
 idx_inliers = 1
-idxs = np.where(mnist.train_labels.numpy()==idx_inliers)[0]
-training_samples = mnist.train_data[idxs]
-number_of_samples = len(training_samples)
-train_set = training_samples[0:int(0.7*number_of_samples)]
-val_set = training_samples[int(0.7*number_of_samples)+1:]
-bs = 16
-train_dataloader = torch.utils.data.DataLoader(train_set, batch_size=bs,drop_last=True)
-val_dataloader = torch.utils.data.DataLoader(val_set, batch_size=bs,drop_last=True)
+idxs = mnist.train_labels == idx_inliers
+mnist.train_labels = mnist.train_labels[idxs]
+mnist.train_data = mnist.train_data[idxs]
 
+mnist_test = torchvision.datasets.MNIST('data/MNIST', train=False, transform=transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))]))
+
+bs = 32
+train_dataloader = torch.utils.data.DataLoader(mnist, batch_size=bs, drop_last=True, num_workers=8)
+val_dataloader = torch.utils.data.DataLoader(mnist_test, batch_size=bs, drop_last=True)
 
 # MODEL
 model = QMNIST((1,28,28), 64, 1)
@@ -34,30 +36,63 @@ mse = torch.nn.MSELoss()
 
 # TRAINING PARAMS
 n_epochs = 30
-lambda_reconstruction = 0.0001
-lambda_q = 1.0
+lambda_reconstruction = torch.tensor([0.001]).cuda()
+lambda_q = torch.tensor([1.0]).cuda()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-
+print("Length of the training dataset = " + str(len(mnist)))
+number_of_batches_per_epoch = len(iter(train_dataloader))
+print("Number of batches per epoch = " + str(number_of_batches_per_epoch))
 # TRAINING PROCESS
 for i in range(0, n_epochs):
-    for sample in enumerate(train_dataloader):
-        
-
-        inputs = sample[1].view(bs,1,28,28).float().cuda()
+    # TRAINING
+    for batch_idx, (sample, label) in enumerate(train_dataloader):
+        inputs = sample.view(bs,1,28,28).float().cuda(async=True)
+        optimizer.zero_grad()
         z, q, rec = model(inputs)
-        print(inputs.size())
-        print(rec.size())
+        
         # compute loss function
-        reconstruction_loss = mse(inputs, rec)
-        print(reconstruction_loss.item())
-        q_loss = torch.sum(torch.abs(q))
-        print(q_loss.item())
-        # total_loss = lambda_reconstruction * reconstruction_loss + lambda_q * q_loss # FIXME
-        total_loss = reconstruction_loss + q_loss
-        print_losses(float(reconstruction_loss.item()), float(q_loss.item()), float(total_loss.item()))
-
+        reconstruction_loss = lambda_reconstruction * mse(inputs, rec)
+        q_loss = lambda_q * torch.sum(torch.abs(q))/bs # minimize the L1 norm of q
+        total_loss = torch.add(q_loss, reconstruction_loss)
+        
+        # print_losses(float(reconstruction_loss.item()), float(q_loss.item()), float(total_loss.item()), batch_idx, number_of_batches_per_epoch)
+        writer.add_scalar('train_loss/rec_loss', reconstruction_loss, (i*number_of_batches_per_epoch) + batch_idx)
+        writer.add_scalar('train_loss/Q_loss', q_loss, (i*number_of_batches_per_epoch) + batch_idx)
+        writer.add_scalar('train_loss/TOTAL_loss', total_loss, (i*number_of_batches_per_epoch)+batch_idx)
+        writer.add_scalar('train_loss/norm_A', model.Q.get_norm_of_B(), (i*number_of_batches_per_epoch)+batch_idx)
         total_loss.backward()
         optimizer.step()
-    
-    # Validation
+        
+    # VALIDATION
+    with torch.no_grad():
+        for batch_idx, (sample, label) in enumerate(val_dataloader):
+            # TODO: Separate between inliers and outliers
+            inputs = sample.view(bs,1,28,28).float().cuda(async=True)
+            z, q, rec = model(inputs)
+            # compute loss function
+            inliers = label == idx_inliers
+            outliers = label != idx_inliers
+
+            inputs_in = inputs[inliers, :, :, :]
+            z_in = z[inliers]
+            q_in = q[inliers]
+            rec_in = rec[inliers]
+            rec_loss_in = lambda_reconstruction * mse(inputs_in, rec_in)
+            q_loss_in = lambda_q * torch.sum(torch.abs(q))/len(inliers) # minimize the L1 norm of q
+
+
+            z_out = z[outliers]
+            q_out = q[outliers]
+            rec_out = rec[outliers]
+
+
+            reconstruction_loss = lambda_reconstruction * mse(inputs, rec)
+            q_loss = lambda_q * torch.sum(torch.abs(q))/bs # minimize the L1 norm of q
+            # total_loss = torch.add(q_loss, reconstruction_loss)
+            inliers_rec_loss = reconstruction_loss[inliers]
+            inliers_q_loss = q_loss[inliers]
+            outliers_rec_loss
+            writer.add_scalar('val_loss/rec_loss', reconstruction_loss, (i*number_of_batches_per_epoch)+batch_idx)
+            writer.add_scalar('val_loss/Q_loss', q_loss, (i*number_of_batches_per_epoch)+batch_idx)
+            writer.add_scalar('val_loss/TOTAL_loss', total_loss, (i*number_of_batches_per_epoch)+batch_idx)
