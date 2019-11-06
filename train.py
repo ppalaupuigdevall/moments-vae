@@ -11,7 +11,7 @@ def print_losses(rec, q, tot, numerador, denominador):
 
 
 # TensorboardX
-writer = SummaryWriter('runs/learn_M')
+writer = SummaryWriter('runs/learn_M_6')
 
 
 # DATASETS & DATALOADERS
@@ -40,14 +40,21 @@ lambda_reconstruction = torch.tensor([0.001]).cuda()
 lambda_q = torch.tensor([1.0]).cuda()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
+
 print("Length of the training dataset = " + str(len(mnist)))
 number_of_batches_per_epoch = len(iter(train_dataloader))
 print("Number of batches per epoch = " + str(number_of_batches_per_epoch))
+
+number_of_batches_per_epoch_validation = len(iter(val_dataloader))
+print("Number of batches per epoch = " + str(number_of_batches_per_epoch_validation))
+
 # TRAINING PROCESS
 for i in range(0, n_epochs):
     # TRAINING
     for batch_idx, (sample, label) in enumerate(train_dataloader):
-        inputs = sample.view(bs,1,28,28).float().cuda(async=True)
+        # inputs = sample.view(bs,1,28,28).float().cuda(async=True)
+        inputs = sample.view(bs,1,28,28).float().pin_memory().cuda(async=True)
+
         optimizer.zero_grad()
         z, q, rec = model(inputs)
         
@@ -56,7 +63,7 @@ for i in range(0, n_epochs):
         q_loss = lambda_q * torch.sum(torch.abs(q))/bs # minimize the L1 norm of q
         total_loss = torch.add(q_loss, reconstruction_loss)
         
-        # print_losses(float(reconstruction_loss.item()), float(q_loss.item()), float(total_loss.item()), batch_idx, number_of_batches_per_epoch)
+        print_losses(float(reconstruction_loss.item()), float(q_loss.item()), float(total_loss.item()), batch_idx, number_of_batches_per_epoch)
         writer.add_scalar('train_loss/rec_loss', reconstruction_loss, (i*number_of_batches_per_epoch) + batch_idx)
         writer.add_scalar('train_loss/Q_loss', q_loss, (i*number_of_batches_per_epoch) + batch_idx)
         writer.add_scalar('train_loss/TOTAL_loss', total_loss, (i*number_of_batches_per_epoch)+batch_idx)
@@ -67,7 +74,7 @@ for i in range(0, n_epochs):
     # VALIDATION
     with torch.no_grad():
         for batch_idx, (sample, label) in enumerate(val_dataloader):
-            # TODO: Separate between inliers and outliers
+            # Separate between inliers and outliers
             inputs = sample.view(bs,1,28,28).float().cuda(async=True)
             z, q, rec = model(inputs)
             # compute loss function
@@ -79,20 +86,15 @@ for i in range(0, n_epochs):
             q_in = q[inliers]
             rec_in = rec[inliers]
             rec_loss_in = lambda_reconstruction * mse(inputs_in, rec_in)
-            q_loss_in = lambda_q * torch.sum(torch.abs(q))/len(inliers) # minimize the L1 norm of q
+            q_loss_in = lambda_q * torch.sum(torch.abs(q_in))/len(inliers) # minimize the L1 norm of q
 
-
+            inputs_out = inputs[outliers]
             z_out = z[outliers]
             q_out = q[outliers]
             rec_out = rec[outliers]
+            rec_loss_out = lambda_reconstruction * mse(inputs_out, rec_out)
+            q_loss_out = lambda_q * torch.sum(torch.abs(q_out))/len(outliers)
 
-
-            reconstruction_loss = lambda_reconstruction * mse(inputs, rec)
-            q_loss = lambda_q * torch.sum(torch.abs(q))/bs # minimize the L1 norm of q
-            # total_loss = torch.add(q_loss, reconstruction_loss)
-            inliers_rec_loss = reconstruction_loss[inliers]
-            inliers_q_loss = q_loss[inliers]
-            outliers_rec_loss
-            writer.add_scalar('val_loss/rec_loss', reconstruction_loss, (i*number_of_batches_per_epoch)+batch_idx)
-            writer.add_scalar('val_loss/Q_loss', q_loss, (i*number_of_batches_per_epoch)+batch_idx)
-            writer.add_scalar('val_loss/TOTAL_loss', total_loss, (i*number_of_batches_per_epoch)+batch_idx)
+            writer.add_scalars('val_loss/rec_loss', {'inliers_rec_loss': rec_loss_in.item(),'outliers_rec_loss': rec_loss_out.item()}, (i*number_of_batches_per_epoch_validation)+batch_idx)
+            writer.add_scalars('val_loss/q_loss', {'inliers_q_loss': q_loss_in.item(),'outliers_q_loss': q_loss_out.item()}, (i*number_of_batches_per_epoch_validation)+batch_idx)
+            
