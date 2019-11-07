@@ -77,7 +77,7 @@ def generate_veronese(x, n):
         @param x: Matrix (dim, npoints)
         @param n: the veronese map will be up to degree n
         
-        Output: the complete veronese map of x
+        Output: the complete veronese map of x (veronese_dim, BS)
         Example:
         if x is a two dimensional vector x = [x1 x2]
         generate_veronese(x, 2) ==> [1 x1 x2 x1^2 x1*x2 x2^2]
@@ -96,16 +96,16 @@ def generate_veronese(x, n):
 
 
 if __name__ == "__main__":
-    d = 4
-
+    d = 64
+    BS = 32
     
-    x = torch.rand([2,d])
-    print(x)
-    x1 = torch.cat([torch.ones([1, d]), x])
+    x = torch.rand([d,BS])
+    print(x.size())
+    x1 = torch.cat([torch.ones([1, BS]), x])
     print(x1)
-    n = 3 # degree of the polynomial, this will generate a moment matrix up to 2*n
-    y, p = veronese_nk(x, n, if_coffiecnt=False)
+    n = 2 # degree of the polynomial, this will generate a moment matrix up to 2*n
+    y, p = veronese_nk(x, n, if_cuda=False, if_coffiecnt=False)
     print(y)
     print(p)
-    bla, blu = generate_veronese(x,n)
-    print(bla)
+    bla, blu = generate_veronese(x.cuda(),n)
+    print(bla.size())

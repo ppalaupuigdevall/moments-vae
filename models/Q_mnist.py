@@ -13,7 +13,7 @@ from models.blocks_2d import UpsampleBlock
 from models.estimator_1D import Estimator1D
 
 from SOS.Q import Q
-
+from SOS.Q import Q_PSD
 import torch
 import torch.nn as nn
 
@@ -22,7 +22,6 @@ import torch.nn as nn
 
 class Encoder(BaseModule):
     """Mnist encoder"""
-
 
     def __init__(self, input_shape, code_length):
         super(Encoder, self).__init__()
@@ -41,7 +40,6 @@ class Encoder(BaseModule):
         )
         self.deepest_shape = (64, h // 4, w // 4) # 64, 7, 7
         
-
         # FC network
         self.fc = nn.Sequential(
             nn.Linear(in_features=reduce(mul, self.deepest_shape), out_features=64),
@@ -50,6 +48,7 @@ class Encoder(BaseModule):
             nn.Linear(in_features=64, out_features=code_length),
             nn.Sigmoid()
         )
+
 
     def forward(self, x):
         # types: (torch.Tensor) -> torch.Tensor
@@ -107,6 +106,7 @@ class Decoder(BaseModule):
             nn.Conv2d(in_channels=16, out_channels=1, kernel_size=1, bias=False)
         )
 
+
     def forward(self, x):
         # types: (torch.Tensor) -> torch.Tensor
         """
@@ -124,9 +124,11 @@ class Decoder(BaseModule):
         return o
 
 
+
 class QMNIST(BaseModule):
 
     def __init__(self, input_shape, code_length, num_chunks):
+        # TODO: implement something that takes z and creates chunks of the latent vector to build a moment matrix for each chunk
         super(QMNIST, self).__init__()
 
         self.input_shape = input_shape
@@ -149,12 +151,50 @@ class QMNIST(BaseModule):
         # Outlier detector
         self.Q = Q(self.code_length, 2)
     
+
     def forward(self, x):
-        
-        z = self.encoder(x)
+        z = self.encoder(x) # z is (BS, code_length)
         q = self.Q(z)
         rec = self.decoder(z)
         return z, q, rec
+
+
+
+class QMNIST_PSD(BaseModule):
+
+    def __init__(self, input_shape, code_length, num_chunks):
+        # TODO: implement something that takes z and creates chunks of the latent vector to build a moment matrix for each chunk
+        super(QMNIST_PSD, self).__init__()
+
+        self.input_shape = input_shape
+        self.code_length = code_length
+        self.num_chunks = num_chunks
+
+        # Encoder
+        self.encoder = Encoder(
+            input_shape=input_shape,
+            code_length=code_length
+        )
+
+        # Decoder
+        self.decoder = Decoder(
+            code_length = code_length,
+            deepest_shape = self.encoder.deepest_shape,
+            output_shape = input_shape
+        )
+
+        # Outlier detector
+        self.Q = Q_PSD(self.code_length, 2)
+    
+    
+    def forward(self, x):
+        z = self.encoder(x) # z is (BS, code_length)
+        q = self.Q(z)
+        rec = self.decoder(z)
+        return z, q, rec
+
+
+
 
 
 if __name__ == '__main__':
