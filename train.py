@@ -69,7 +69,10 @@ print("Number of batches per epoch = " + str(number_of_batches_per_epoch_validat
 # TRAINING PROCESS
 for i in range(0, n_epochs):
     # TRAINING
+<<<<<<< HEAD
     
+=======
+>>>>>>> c062b8aa831d3e292e53b36c61a0ab6ab48eb590
     for batch_idx, (sample, label) in enumerate(train_dataloader):
         # inputs = sample.view(bs,1,28,28).float().cuda(async=True)
         inputs = sample.view(bs,1,28,28).float().pin_memory().cuda(async=True)
@@ -89,6 +92,7 @@ for i in range(0, n_epochs):
         writer.add_scalar('train_loss/norm_A', model.Q.get_norm_of_B(), (i*number_of_batches_per_epoch)+batch_idx)
         total_loss.backward()
         optimizer.step()
+<<<<<<< HEAD
     if(i==0):
         # Freeze encoder-decoder
         for param in model.encoder.named_parameters():
@@ -97,6 +101,8 @@ for i in range(0, n_epochs):
             param.requires_grad = False
 
 
+=======
+>>>>>>> c062b8aa831d3e292e53b36c61a0ab6ab48eb590
 
     torch.save(model.state_dict(), os.path.join('/data/Ponc/learning_M_inv_'+str(i)))
     # VALIDATION
