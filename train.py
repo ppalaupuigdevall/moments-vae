@@ -12,36 +12,34 @@ def print_losses(rec, q, tot, numerador, denominador):
     print("{:0.2f}%  REC = {:0.2f} | Q = {:0.2f}  | TOTAL = {:0.2f} ".format((numerador/denominador)*100.0,rec, q, tot))
 
 
+def select_idx(mnist, idx):
+    # Select the digit we are considering as inlier
+    idx_inliers = idx
+    idxs = mnist.train_labels == idx_inliers
+    mnist.train_labels = mnist.train_labels[idxs]
+    mnist.train_data = mnist.train_data[idxs]
+    return mnist
+
+
 parser = argparse.ArgumentParser(description='Train encoder decoder to learn moment matrix.')
 parser.add_argument('--model', help="Available models:\n 1. Q (learns M_inv directly)\n 2. Q_PSD (Learns M_inv = A.T*A so M is PSD)")
 args = parser.parse_args()
 
-
 # DATASETS & DATALOADERS
 mnist = torchvision.datasets.MNIST('data/MNIST', train=True, download=True, transform=transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))]))
-# Select the digit we are considering as inlier
-idx_inliers = 1
-idxs = mnist.train_labels == idx_inliers
-mnist.train_labels = mnist.train_labels[idxs]
-mnist.train_data = mnist.train_data[idxs]
-
+mnist = select_idx(mnist, 1)
 mnist_test = torchvision.datasets.MNIST('data/MNIST', train=False, transform=transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))]))
-
 bs = 32
 train_dataloader = torch.utils.data.DataLoader(mnist, batch_size=bs, drop_last=True, num_workers=8)
 val_dataloader = torch.utils.data.DataLoader(mnist_test, batch_size=bs, drop_last=True)
 
 # MODEL
 if(args.model == 'Q'):
-    model = QMNIST((1,28,28), 64, 1)
-    
+    model = QMNIST((1,28,28), 64, 1)   
 elif(args.model == 'Q_PSD'):
     model = QMNIST_PSD((1,28,28), 64,1)
-    # TensorboardX
-    # writer = SummaryWriter('runs/learning_M_inv_PSD')
 else:
     model = None
-    # writer = None
 
 model = model.cuda()
 mse = torch.nn.MSELoss()
@@ -49,22 +47,14 @@ mse = torch.nn.MSELoss()
 # TensorboardX
 writer = SummaryWriter('runs/learning_M_inv_Freeze')
 
-
 # TRAINING PARAMS
 n_epochs = 5
 lambda_reconstruction = torch.tensor([0.001]).cuda()
 lambda_q = torch.tensor([1.0]).cuda()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-
-
-print("Length of the training dataset = " + str(len(mnist)))
 number_of_batches_per_epoch = len(iter(train_dataloader))
-print("Number of batches per epoch = " + str(number_of_batches_per_epoch))
-
 number_of_batches_per_epoch_validation = len(iter(val_dataloader))
-print("Number of batches per epoch = " + str(number_of_batches_per_epoch_validation))
 
-# def train_model(model, optimizer, train_dataloader, val_dataloader, rec_loss, lambda_reconstruction, lambda_q, number_of_batches_per_epoch, number_of_batches_per_epoch_validation, bs):
 
 # TRAINING PROCESS
 for i in range(0, n_epochs):
@@ -83,6 +73,8 @@ for i in range(0, n_epochs):
         total_loss = torch.add(q_loss, reconstruction_loss)
         
         print_losses(float(reconstruction_loss.item()), float(q_loss.item()), float(total_loss.item()), batch_idx, number_of_batches_per_epoch)
+        norm_of_z = torch.trace(torch.matmul(z,z.t()))
+        writer.add_scalar('train_loss/norm_z', norm_of_z, (i*number_of_batches_per_epoch) + batch_idx)
         writer.add_scalar('train_loss/rec_loss', reconstruction_loss, (i*number_of_batches_per_epoch) + batch_idx)
         writer.add_scalar('train_loss/Q_loss', q_loss, (i*number_of_batches_per_epoch) + batch_idx)
         writer.add_scalar('train_loss/TOTAL_loss', total_loss, (i*number_of_batches_per_epoch)+batch_idx)
@@ -91,12 +83,10 @@ for i in range(0, n_epochs):
         optimizer.step()
     if(i==0):
         # Freeze encoder-decoder
-        for param in model.encoder.named_parameters():
+        for name,param in model.encoder.named_parameters():
             param.requires_grad = False
-        for param in model.decoder.named_parameters():
+        for name,param in model.decoder.named_parameters():
             param.requires_grad = False
-
-
 
     torch.save(model.state_dict(), os.path.join('/data/Ponc/learning_M_inv_'+str(i)))
     # VALIDATION

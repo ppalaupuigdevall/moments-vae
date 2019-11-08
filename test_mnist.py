@@ -29,7 +29,7 @@ number_of_batches_per_epoch_validation = len(iter(val_dataloader))
 print("Number of batches per epoch = " + str(number_of_batches_per_epoch_validation))
 
 print("Norma de A = " + str(model.Q.get_norm_of_B()))
-print(model.Q.B.weight)
+A = model.Q.B.weight
 print("La suma de la diagonal de la matriu al quadrat = ")
 print(torch.sum(torch.diag(model.Q.B.weight.view(2145,2145))**2))
 print("A.T*A")
