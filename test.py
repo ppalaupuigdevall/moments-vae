@@ -25,6 +25,21 @@ def test_mnist():
     model = LSAMNIST(input_shape=dataset.shape, code_length=64, cpd_channels=100).cuda().eval()
 
     # Set up result helper and perform test
+    helper = OneClassResultHelper(dataset, model, checkpoints_dir='/data/Ponc/mnist/', output_file='mnist.txt')
+    helper.test_one_class_classification()
+
+
+def test_mom_mnist():
+    # type: () -> None
+    """
+    Performs One-class classification tests on MNIST
+    """
+
+    # Build dataset and model
+    dataset = MNIST(path='data/MNIST')
+    model = LSAMNIST(input_shape=dataset.shape, code_length=64, cpd_channels=100).cuda().eval()
+
+    # Set up result helper and perform test
     helper = OneClassResultHelper(dataset, model, checkpoints_dir='checkpoints/mnist/', output_file='mnist.txt')
     helper.test_one_class_classification()
 
@@ -40,7 +55,7 @@ def test_cifar():
     model = LSACIFAR10(input_shape=dataset.shape, code_length=64, cpd_channels=100).cuda().eval()
 
     # Set up result helper and perform test
-    helper = OneClassResultHelper(dataset, model, checkpoints_dir='checkpoints/cifar10/', output_file='cifar10.txt')
+    helper = OneClassResultHelper(dataset, model, checkpoints_dir='/data/Ponc/cifar10/', output_file='cifar10.txt')
     helper.test_one_class_classification()
 
 
