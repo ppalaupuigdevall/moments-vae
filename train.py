@@ -29,15 +29,14 @@ def freeze_ENC_DEC(model):
         param.requires_grad = False
 
 
-def write_train_results(step, reconstruction_loss, q_loss, norm_A, norm_z, writer):
+def write_train_results(step, reconstruction_loss, q_loss, norm_A, norm_of_z, writer):
     writer.add_scalar('train_loss/norm_z', norm_of_z, step)
     writer.add_scalar('train_loss/rec_loss', reconstruction_loss, step)
     writer.add_scalar('train_loss/Q_loss', q_loss, step)
-    writer.add_scalar('train_loss/TOTAL_loss', total_loss, step)
-    writer.add_scalar('train_loss/norm_A', model.Q.get_norm_of_B(), step)
+    writer.add_scalar('train_loss/norm_A', norm_A, step)
 
 
-def train_model(model, optimizer, epochs, train_dl, val_dl, wr):
+def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers):
     number_of_batches_per_epoch = len(iter(train_dataloader))
     number_of_batches_per_epoch_validation = len(iter(val_dataloader))
     # Loss function
@@ -68,7 +67,7 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr):
         if(i==0):
             freeze_ENC_DEC(model)
 
-        torch.save(model.state_dict(), os.path.join('/data/Ponc/learning_M_inv_'+str(i)))
+        torch.save(model.state_dict(), os.path.join('/data/Ponc/learning_M_inv_0_'+str(i)))
         
         # VALIDATION
         with torch.no_grad():
@@ -108,12 +107,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train encoder decoder to learn moment matrix.')
     parser.add_argument('--model', help="Available models:\n 1. Q (learns M_inv directly)\n 2. Q_PSD (Learns M_inv = A.T*A so M is PSD)")
     parser.add_argument('--writer', help="Name of the session that will be opened by tensorboard X")
-
+    parser.add_argument('--idx_inliers', help="Digit considered as inlier.")
     args = parser.parse_args()
 
     # DATASETS & DATALOADERS
     mnist = torchvision.datasets.MNIST('data/MNIST', train=True, download=True, transform=transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))]))
-    mnist = select_idx(mnist, 1)
+    idx_inliers = int(args.idx_inliers)
+    mnist = select_idx(mnist, idx_inliers)
     mnist_test = torchvision.datasets.MNIST('data/MNIST', train=False, transform=transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))]))
     bs = 32
     train_dataloader = torch.utils.data.DataLoader(mnist, batch_size=bs, drop_last=True, num_workers=8)
@@ -130,8 +130,8 @@ if __name__ == '__main__':
 
     # TensorboardX
     writer = SummaryWriter('runs/'+str(args.writer))
-
+    
     # TRAINING PARAMS
     n_epochs = 5
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    train_model(model, optimizer, n_epochs, train_dataloader, val_dataloader, writer)
+    train_model(model, optimizer, n_epochs, train_dataloader, val_dataloader, writer, idx_inliers)
