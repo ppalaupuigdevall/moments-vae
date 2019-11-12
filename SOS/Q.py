@@ -4,6 +4,8 @@ import sys
 sys.path.append("/home/ppalau/moments-vae/")
 from SOS.veronese import generate_veronese as generate_veronese
 
+from scipy.special import comb
+
 
 class Bilinear_ATA(nn.Module):
     """
@@ -46,12 +48,12 @@ class Q(nn.Module):
         super(Q, self).__init__()
         self.n = n
         # Dummy vector to know the exact size of the veronese
-        dummy = torch.rand([x_size, 1]).cuda(async=True) # dummy point of size x_size
+        dummy = torch.rand([x_size, 1]).cuda('cuda:2') # dummy point of size x_size
         v_x, _ = generate_veronese(dummy, self.n)
         print("La mida de la matriu sera "+str(v_x.size()[0]))
         # We don't need dummy anymore
         del dummy
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
         self.B = nn.Bilinear(v_x.size()[0], v_x.size()[0], 1, bias=None)
         
 
@@ -65,7 +67,7 @@ class Q(nn.Module):
     def get_norm_of_B(self):
         one, rows, cols = self.B.weight.size()
         aux = self.B.weight.view(rows, cols)
-        return torch.trace(torch.mm(aux.cpu().t_(), aux.cpu()))
+        return torch.trace(torch.mm(aux.t(), aux))
 
 
 class Q_PSD(nn.Module):
@@ -74,11 +76,11 @@ class Q_PSD(nn.Module):
         self.n = n
         self.x_size = x_size
         # Dummy vector to know the exact size of the veronese
-        dummy = torch.rand([x_size, 1]).cuda(async=True) # 2 dummy points of size x_size
+        dummy = torch.rand([x_size, 1]).cuda('cuda:2') # 2 dummy points of size x_size
         v_x, _ = generate_veronese(dummy, self.n)
         # We don't need dummy anymore
         del dummy
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
         self.B = Bilinear_ATA(v_x.size()[0])
 
     def forward(self, x):
@@ -88,9 +90,27 @@ class Q_PSD(nn.Module):
         x = self.B(v_x)        
         return x
 
+    def get_norm_of_ATA(self):
+        return torch.trace(torch.matmul(self.B.A.data.t(),self.B.A.data))
+
+
+
+class Q_hinge_loss(nn.Module):
+    """
+    This loss is defined as follows:
+        max(   0  ,  abs(vt(x) * A * v(x)) - m   )
+    """
+    def __init__(self, order, dim):
+        super(Q_hinge_loss, self).__init__()
+        self.magic_Q = comb(order+dim, dim)
+    
+    def forward(self, x):
+        return torch.max(0, x-(self.magic_Q * torch.ones_like(x)))
+           
+
 
 if __name__ == '__main__':
-    bs = 16
+    bs = 12
     dims = 2
     b = torch.rand([bs, dims])
     print(b)
