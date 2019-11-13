@@ -48,19 +48,17 @@ class Q(nn.Module):
         super(Q, self).__init__()
         self.n = n
         # Dummy vector to know the exact size of the veronese
-        dummy = torch.rand([x_size, 1]).cuda('cuda:2') # dummy point of size x_size
+        dummy = torch.rand([x_size, 1]).cuda('cuda:3') # dummy point of size x_size
         v_x, _ = generate_veronese(dummy, self.n)
         print("La mida de la matriu sera "+str(v_x.size()[0]))
         # We don't need dummy anymore
-        del dummy
-        # torch.cuda.empty_cache()
         self.B = nn.Bilinear(v_x.size()[0], v_x.size()[0], 1, bias=None)
-        
+       
 
     def forward(self, x):
         npoints, dims = x.size()
         v_x, _ = generate_veronese(x.view(dims, npoints), self.n)
-        # v_x is (dim_veronese, BS)
+        # v_x is (dim_veronese, BS), transpose it to have the batch dim at the beginning
         x = self.B(v_x.t_(), v_x)        
         return x
 
@@ -76,11 +74,9 @@ class Q_PSD(nn.Module):
         self.n = n
         self.x_size = x_size
         # Dummy vector to know the exact size of the veronese
-        dummy = torch.rand([x_size, 1]).cuda('cuda:2') # 2 dummy points of size x_size
+        dummy = torch.rand([x_size, 1]).cuda('cuda:3') # 2 dummy points of size x_size
         v_x, _ = generate_veronese(dummy, self.n)
         # We don't need dummy anymore
-        del dummy
-        # torch.cuda.empty_cache()
         self.B = Bilinear_ATA(v_x.size()[0])
 
     def forward(self, x):
@@ -105,29 +101,13 @@ class Q_hinge_loss(nn.Module):
         self.magic_Q = comb(order+dim, dim)
     
     def forward(self, x):
-        return torch.max(0, x-(self.magic_Q * torch.ones_like(x)))
+        return torch.max(torch.zeros_like(x), x-(self.magic_Q * torch.ones_like(x)))
            
 
 
 if __name__ == '__main__':
-    bs = 12
-    dims = 2
-    b = torch.rand([bs, dims])
-    print(b)
-    # Define a loss module
-    q_lo = Q(dims, 2)
-    q_lo = q_lo.cuda()
-    lala = q_lo(b.cuda())
-    print(lala.size())
-    valordelaloss = torch.sum(torch.abs(lala))
-    valordelaloss.backward()
-    print("Dimensio = " + str(lala.size()))
-    print("Q normal funciona")
 
-    b2 = torch.rand([bs, dims]).cuda()
-    q_psd = Q_PSD(dims, 2)
-    q_psd = q_psd.cuda()
-    res = q_psd(b2)
-    print("Dimensio = " + str(res.size()))
-    print(res)
-    print("Q_PSD funciona")
+    qh = Q_hinge_loss(2,2)
+    x = torch.rand(16,1)
+    lala = qh(x)
+    print()

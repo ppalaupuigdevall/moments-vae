@@ -9,6 +9,7 @@ import argparse
 import os
 
 def print_losses(rec, q, tot, numerador, denominador):
+    # print_losses(float(reconstruction_loss.item()), float(q_loss.item()), float(total_loss.item()), batch_idx, number_of_batches_per_epoch)
     print("{:0.2f}%  REC = {:0.2f} | Q = {:0.2f}  | TOTAL = {:0.2f} ".format((numerador/denominador)*100.0,rec, q, tot))
 
 
@@ -49,7 +50,6 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
     for i in range(0, n_epochs):
         # TRAINING
         for batch_idx, (sample, label) in enumerate(train_dataloader):
-            
             inputs = sample.view(bs,1,28,28).float().cuda('cuda:'+str(device))
             optimizer.zero_grad()
             z, q, rec = model(inputs)
@@ -64,8 +64,6 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
             # write_train_results(step, reconstruction_loss, q_loss, model.Q.get_norm_of_B(), norm_of_z, writer)
             # Q_1_0
             write_train_results(step, reconstruction_loss, q_loss, model.Q.get_norm_of_ATA(), norm_of_z, writer)
-            
-            # print_losses(float(reconstruction_loss.item()), float(q_loss.item()), float(total_loss.item()), batch_idx, number_of_batches_per_epoch)
             # Backpropagate
             total_loss.backward()
             optimizer.step()
@@ -90,14 +88,14 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
                 q_in = q[inliers]
                 rec_in = rec[inliers]
                 rec_loss_in = lambda_reconstruction * mse(inputs_in, rec_in)
-                q_loss_in = lambda_q * torch.sum(torch.abs(q_in))/len(inliers) 
+                q_loss_in = lambda_q * torch.sum(torch.abs(q_in))/q_in.size()[0]
                 
                 inputs_out = inputs[outliers]
                 z_out = z[outliers]
                 q_out = q[outliers]
                 rec_out = rec[outliers]
                 rec_loss_out = lambda_reconstruction * mse(inputs_out, rec_out)
-                q_loss_out = lambda_q * torch.sum(torch.abs(q_out))/len(outliers)
+                q_loss_out = lambda_q * torch.sum(torch.abs(q_out))/q_out.size()[0]
 
                 step = ((i*number_of_batches_per_epoch_validation)+batch_idx)
                 if(q_in.size()[0]>0):
@@ -126,7 +124,7 @@ if __name__ == '__main__':
     mnist_test = torchvision.datasets.MNIST('data/MNIST', train=False, transform=transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))]))
     bs = 32
     train_dataloader = torch.utils.data.DataLoader(mnist, batch_size=bs, drop_last=True, num_workers=8)
-    val_dataloader = torch.utils.data.DataLoader(mnist_test, batch_size=bs, drop_last=True, shuffle=False)
+    val_dataloader = torch.utils.data.DataLoader(mnist_test, batch_size=100, drop_last=True, shuffle=False)
 
     # MODEL
     if(args.model == 'Q'):
@@ -141,9 +139,7 @@ if __name__ == '__main__':
     
     # TensorboardX
     writer = SummaryWriter('runs/'+str(args.writer))
-    
     # TRAINING PARAMS
-    n_epochs = 10
+    n_epochs = 30
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     train_model(model, optimizer, n_epochs, train_dataloader, val_dataloader, writer, idx_inliers, device)
-   
