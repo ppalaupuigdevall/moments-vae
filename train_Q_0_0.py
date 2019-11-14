@@ -68,10 +68,10 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
             total_loss.backward()
             optimizer.step()
             
-        if(i==0):
-            freeze_ENC_DEC(model)
+        # if(i==0):
+        #     freeze_ENC_DEC(model)
 
-        torch.save(model.state_dict(), os.path.join('/data/Ponc/Q_0_1/'+str(i)))
+        torch.save(model.state_dict(), os.path.join('/data/Ponc/Q_0_0/'+str(i)))
         
         # VALIDATION
         with torch.no_grad():
