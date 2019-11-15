@@ -14,6 +14,7 @@ from models.estimator_1D import Estimator1D
 
 from SOS.Q import Q
 from SOS.Q import Q_PSD
+from SOS.Q import Q_real_M
 import torch
 import torch.nn as nn
 
@@ -193,6 +194,39 @@ class QMNIST_PSD(BaseModule):
         rec = self.decoder(z)
         return z, q, rec
 
+
+
+class QMNIST_real_M(BaseModule):
+
+    def __init__(self, input_shape, code_length, num_chunks):
+        # TODO: implement something that takes z and creates chunks of the latent vector to build a moment matrix for each chunk
+        super(QMNIST_real_M, self).__init__()
+
+        self.input_shape = input_shape
+        self.code_length = code_length
+        self.num_chunks = num_chunks
+
+        # Encoder
+        self.encoder = Encoder(
+            input_shape=input_shape,
+            code_length=code_length
+        )
+
+        # Decoder
+        self.decoder = Decoder(
+            code_length = code_length,
+            deepest_shape = self.encoder.deepest_shape,
+            output_shape = input_shape
+        )
+
+        # Outlier detector
+        self.Q = Q_real_M(self.code_length, 2)
+    
+
+    def forward(self, x):
+        z = self.encoder(x) # z is (BS, code_length)
+        q = self.Q(z)
+        return z, q
 
 
 
