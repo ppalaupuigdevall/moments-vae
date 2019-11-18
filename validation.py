@@ -73,14 +73,14 @@ if __name__ == '__main__':
             q_in = q[inliers]
             rec_in = rec[inliers]
             rec_loss_in = lambda_reconstruction * mse(inputs_in, rec_in)
-            q_loss_in = lambda_q * torch.sum(torch.abs(q_in))/q_in.size()[0] # BUG SUPER BUG OSTIAAAA 
+            q_loss_in = lambda_q * torch.sum(torch.abs(q_in))/q_in.size()[0] 
             
             inputs_out = inputs[outliers]
             z_out = z[outliers]
             q_out = q[outliers]
             rec_out = rec[outliers]
             rec_loss_out = lambda_reconstruction * mse(inputs_out, rec_out)
-            q_loss_out = lambda_q * torch.sum(torch.abs(q_out))/q_out.size()[0] # SUPER BUG BUG BUG BUG BUG !! OSTIA BUG!!! COM POTS SER TANT INUTIL!!!!!!! 
+            q_loss_out = lambda_q * torch.sum(torch.abs(q_out))/q_out.size()[0] 
             print("Q_IN = {:0.2f}".format(q_loss_in.item()))
             print("Q_OUT = {:0.2f}".format(q_loss_out.item()))
             print("Norm of A = " + str(model.Q.get_norm_of_B()))

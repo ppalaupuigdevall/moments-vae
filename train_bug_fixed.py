@@ -8,6 +8,7 @@ from tensorboardX import SummaryWriter
 import argparse
 import os
 
+
 def print_losses(rec, q, tot, numerador, denominador):
     # print_losses(float(reconstruction_loss.item()), float(q_loss.item()), float(total_loss.item()), batch_idx, number_of_batches_per_epoch)
     print("{:0.2f}%  REC = {:0.2f} | Q = {:0.2f}  | TOTAL = {:0.2f} ".format((numerador/denominador)*100.0,rec, q, tot))
@@ -71,10 +72,11 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
         if(i==0):
             freeze_ENC_DEC(model)
 
-        torch.save(model.state_dict(), os.path.join('/data/Ponc/Q_0_1/'+str(i)))
+        torch.save(model.state_dict(), os.path.join('/data/Ponc/Q_0_1_FIX_no_BN/'+str(i)))
         
         # VALIDATION
         with torch.no_grad():
+            model = model.eval()
             for batch_idx, (sample, label) in enumerate(val_dataloader):
                 # Separate between inliers and outliers
                 inputs = sample.view(100,1,28,28).float().cuda('cuda:'+str(device))
@@ -122,7 +124,7 @@ if __name__ == '__main__':
     idx_inliers = int(args.idx_inliers)
     mnist = select_idx(mnist, idx_inliers)
     mnist_test = torchvision.datasets.MNIST('data/MNIST', train=False, transform=transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))]))
-    bs = 32
+    bs = 64
     train_dataloader = torch.utils.data.DataLoader(mnist, batch_size=bs, drop_last=True, num_workers=8)
     val_dataloader = torch.utils.data.DataLoader(mnist_test, batch_size=100, drop_last=True, shuffle=False)
 

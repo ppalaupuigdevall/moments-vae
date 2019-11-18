@@ -4,6 +4,7 @@ from torchvision import transforms
 import numpy as np
 from models.Q_mnist import QMNIST
 from models.Q_mnist import QMNIST_PSD
+from models.Q_mnist import Q
 from tensorboardX import SummaryWriter
 import argparse
 import os
@@ -75,6 +76,7 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
         
         # VALIDATION
         with torch.no_grad():
+            model = model.eval()
             for batch_idx, (sample, label) in enumerate(val_dataloader):
                 # Separate between inliers and outliers
                 inputs = sample.view(100,1,28,28).float().cuda('cuda:'+str(device))
@@ -129,6 +131,7 @@ if __name__ == '__main__':
     # MODEL
     if(args.model == 'Q'):
         model = QMNIST((1,28,28), 64, 1)   
+        
     elif(args.model == 'Q_PSD'):
         model = QMNIST_PSD((1,28,28), 64,1)
     else:
