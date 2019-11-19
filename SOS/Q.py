@@ -4,7 +4,7 @@ import sys
 sys.path.append("/home/ppalau/moments-vae/")
 from SOS.veronese import generate_veronese as generate_veronese
 from scipy.special import comb
-
+import numpy as np
 
 class Q(nn.Module):
     """
@@ -181,7 +181,8 @@ class MyBilinear(nn.Module):
     def __init__(self, x_size):
         super(MyBilinear, self).__init__()
         self.x_size = x_size # x_size is the same of dim_veronese
-        self.A = torch.nn.Parameter(data=torch.rand(x_size,x_size), requires_grad=True)
+        sqrt_k = np.sqrt(1/self.x_size)
+        self.A = torch.nn.Parameter(data=torch.rand(x_size,x_size)*sqrt_k -sqrt_k*0.5, requires_grad=True)
     
     def forward(self, x):    
         # x represents the veronese, which will be of size (dim_veronese, BS)
@@ -206,23 +207,23 @@ class Q_FIXED(nn.Module):
         x_size = vector_size, [x1 x2 ... xd]
         n = moment degree up to n
         """
-        super(Q, self).__init__()
+        super(Q_FIXED, self).__init__()
         self.n = n
         # Dummy vector to know the exact size of the veronese
         dummy = torch.rand([x_size, 1]).cuda('cuda:2') # dummy point of size x_size
         v_x, _ = generate_veronese(dummy, self.n)
         print("La mida de la matriu sera "+str(v_x.size()[0]))
         # We don't need dummy anymore
-        self.B = nn.Bilinear(v_x.size()[0], v_x.size()[0], 1, bias=None)
+        self.B = MyBilinear(v_x.size()[0])
 
     def forward(self, x):
         npoints, dims = x.size()
         v_x, _ = generate_veronese(x.view(dims, npoints), self.n)
         # v_x is (dim_veronese, BS), transpose it to have the batch dim at the beginning
-        x = self.B(v_x.t_(), v_x)        
+        x = self.B(v_x)        
         return x
 
     def get_norm_of_B(self):
-        one, rows, cols = self.B.weight.size()
-        aux = self.B.weight.view(rows, cols)
+        rows, cols = self.B.A.data.size()
+        aux = self.B.A.data.view(rows, cols)
         return torch.trace(torch.mm(aux.t(), aux))

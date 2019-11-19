@@ -15,6 +15,7 @@ from models.estimator_1D import Estimator1D
 from SOS.Q import Q
 from SOS.Q import Q_PSD
 from SOS.Q import Q_real_M
+from SOS.Q import Q_FIXED
 import torch
 import torch.nn as nn
 
@@ -150,8 +151,8 @@ class QMNIST(BaseModule):
         )
 
         # Outlier detector
-        self.Q = Q(self.code_length, 2)
-    
+        # self.Q = Q(self.code_length, 2)
+        self.Q = Q_FIXED(self.code_length, 2)
 
     def forward(self, x):
         z = self.encoder(x) # z is (BS, code_length)
