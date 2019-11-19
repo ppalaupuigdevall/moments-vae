@@ -68,9 +68,10 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
             # Backpropagate
             total_loss.backward()
             optimizer.step()
+            break
             
-        if(i==0):
-            freeze_ENC_DEC(model)
+        # if(i==0):
+        #     freeze_ENC_DEC(model)
 
         # torch.save(model.state_dict(), os.path.join('/data/Ponc/Q_0_1_FIX_no_BN/'+str(i)))
         

@@ -5,8 +5,6 @@ from functools import reduce
 from operator import mul
 from typing import Tuple
 
-
-
 from models.base import BaseModule
 from models.blocks_2d import DownsampleBlock
 from models.blocks_2d import UpsampleBlock
@@ -16,9 +14,9 @@ from SOS.Q import Q
 from SOS.Q import Q_PSD
 from SOS.Q import Q_real_M
 from SOS.Q import Q_FIXED
+
 import torch
 import torch.nn as nn
-
 
 
 
@@ -51,7 +49,6 @@ class Encoder(BaseModule):
             nn.Sigmoid()
         )
 
-
     def forward(self, x):
         # types: (torch.Tensor) -> torch.Tensor
         """
@@ -60,7 +57,6 @@ class Encoder(BaseModule):
         :param x: the input batch of images.
         :return: the batch of latent vectors.
         """
-
         h = x
         h = self.conv(h)
         h = h.view(len(h), -1)
@@ -108,7 +104,6 @@ class Decoder(BaseModule):
             nn.Conv2d(in_channels=16, out_channels=1, kernel_size=1, bias=False)
         )
 
-
     def forward(self, x):
         # types: (torch.Tensor) -> torch.Tensor
         """
@@ -124,77 +119,6 @@ class Decoder(BaseModule):
         o = h
 
         return o
-
-
-
-class QMNIST(BaseModule):
-
-    def __init__(self, input_shape, code_length, num_chunks):
-        # TODO: implement something that takes z and creates chunks of the latent vector to build a moment matrix for each chunk
-        super(QMNIST, self).__init__()
-
-        self.input_shape = input_shape
-        self.code_length = code_length
-        self.num_chunks = num_chunks
-
-        # Encoder
-        self.encoder = Encoder(
-            input_shape=input_shape,
-            code_length=code_length
-        )
-
-        # Decoder
-        self.decoder = Decoder(
-            code_length = code_length,
-            deepest_shape = self.encoder.deepest_shape,
-            output_shape = input_shape
-        )
-
-        # Outlier detector
-        # self.Q = Q(self.code_length, 2)
-        self.Q = Q_FIXED(self.code_length, 2)
-
-    def forward(self, x):
-        z = self.encoder(x) # z is (BS, code_length)
-        q = self.Q(z)
-        rec = self.decoder(z)
-        return z, q, rec
-
-
-
-class QMNIST_PSD(BaseModule):
-
-    def __init__(self, input_shape, code_length, num_chunks):
-        # TODO: implement something that takes z and creates chunks of the latent vector to build a moment matrix for each chunk
-        super(QMNIST_PSD, self).__init__()
-
-        self.input_shape = input_shape
-        self.code_length = code_length
-        self.num_chunks = num_chunks
-
-        # Encoder
-        self.encoder = Encoder(
-            input_shape=input_shape,
-            code_length=code_length
-        )
-
-        # Decoder
-        self.decoder = Decoder(
-            code_length = code_length,
-            deepest_shape = self.encoder.deepest_shape,
-            output_shape = input_shape
-        )
-
-        # Outlier detector
-        self.Q = Q_PSD(self.code_length, 2)
-    
-    
-    def forward(self, x):
-        z = self.encoder(x) # z is (BS, code_length)
-        q = self.Q(z)
-        rec = self.decoder(z)
-        return z, q, rec
-
 
 
 class QMNIST_real_M(BaseModule):
@@ -230,12 +154,40 @@ class QMNIST_real_M(BaseModule):
         return z, q
 
 
+class QMNIST(BaseModule):
+    """
+        Encoder-Decoder with outlier detector using moments (Matrix of moments learned)
+    """
+    def __init__(self, input_shape, code_length, mode='Q', device = 'cuda:2'):
+        
+        super(QMNIST, self).__init__()
 
+        self.input_shape = input_shape
+        self.code_length = code_length
 
-if __name__ == '__main__':
-    net = QMNIST((1,28,28), 16, 1)
-    x = torch.rand([10, 1, 28, 28])
-    encoding, q_val, rec = net(x)
-    print(encoding.size())
-    print(q_val)
-    print(rec.size())
+        # Encoder
+        self.encoder = Encoder(
+            input_shape=input_shape,
+            code_length=code_length
+        )
+
+        # Decoder
+        self.decoder = Decoder(
+            code_length = code_length,
+            deepest_shape = self.encoder.deepest_shape,
+            output_shape = input_shape
+        )
+
+        # Outlier detector
+        if(mode=='Q_Bilinear'):
+            self.Q = Q(self.code_length, 2, device)
+        elif(mode=='Q'):
+            self.Q = Q_FIXED(self.code_length, 2, device)
+        elif(mode=='Q_PSD'):
+            self.Q = Q_PSD(self.code_length, 2, device)
+
+    def forward(self, x):
+        z = self.encoder(x) # z is (BS, code_length)
+        q = self.Q(z)
+        rec = self.decoder(z)
+        return z, q, rec
