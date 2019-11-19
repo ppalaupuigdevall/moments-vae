@@ -114,7 +114,7 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
                 elif(q_out.size()[0]>0):
                     for i_q_out in range(number_outliers):
                         writer.add_image('outlier/'+str(step)+'_q_'+str(i_q_out), inputs_out[i_q_out,0,:,:].cpu().numpy().reshape(1,28,28), step+i_q_out)
-                        writer.add_scalar('val_loss/q_loss_ouy_indep', q_out[i_q_out].item(), step+i_q_out) 
+                        writer.add_scalar('val_loss/q_loss_out_indep', q_out[i_q_out].item(), step+i_q_out) 
                                        
                 writer.add_scalars('val_loss/rec_loss', {'inliers_rec_loss': rec_loss_in.item(),'outliers_rec_loss': rec_loss_out.item()}, step)
                 writer.add_scalars('val_loss/q_loss', {'inliers_q_loss': q_loss_in.item(),'outliers_q_loss': q_loss_out.item()}, step)
@@ -125,7 +125,7 @@ if __name__ == '__main__':
 
     # Parse arguments
     parser = argparse.ArgumentParser(description='Train encoder decoder to learn moment matrix.')
-    parser.add_argument('--model', help="Available models:\n 1. Q (learns M_inv directly)\n 2. Q_PSD (Learns M_inv = A.T*A so M is PSD)")
+    parser.add_argument('--model', help="Available models:\n 1. Q_Bilinear (learns M_inv directly using torch.nn.Bilinear)\n 2. Q (Learns M_inv = A) \n 3.  Q_PSD (Learns M_inv = A.T*A so M is PSD)")
     parser.add_argument('--writer', help="Name of the session that will be opened by tensorboard X")
     parser.add_argument('--idx_inliers', help="Digit considered as inlier.")
     parser.add_argument('--device', help="cuda device")
