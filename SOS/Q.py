@@ -24,12 +24,8 @@ class Q(nn.Module):
         """
         super(Q, self).__init__()
         self.n = n
-        # Dummy vector to know the exact size of the veronese
-        dummy = torch.rand([x_size, 1]).cuda('cuda:2') # dummy point of size x_size
-        v_x, _ = generate_veronese(dummy, self.n)
-        print("La mida de la matriu sera "+str(v_x.size()[0]))
-        # We don't need dummy anymore
-        self.B = nn.Bilinear(v_x.size()[0], v_x.size()[0], 1, bias=None)
+        self.dim_veronese = int(comb(x_size + n, n))
+        self.B = nn.Bilinear(self.dim_veronese, self.dim_veronese, 1, bias=None)
        
     def forward(self, x):
         npoints, dims = x.size()
@@ -81,11 +77,8 @@ class Q_PSD(nn.Module):
         super(Q_PSD, self).__init__()
         self.n = n
         self.x_size = x_size
-        # Dummy vector to know the exact size of the veronese
-        dummy = torch.rand([x_size, 1]).cuda('cuda:2') # 2 dummy points of size x_size
-        v_x, _ = generate_veronese(dummy, self.n)
-        # We don't need dummy anymore
-        self.B = Bilinear_ATA(v_x.size()[0])
+        self.dim_veronese = int(comb(x_size + n, n))
+        self.B = Bilinear_ATA(self.dim_veronese)
 
     def forward(self, x):
         npoints, dims = x.size()
