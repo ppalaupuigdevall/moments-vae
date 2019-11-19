@@ -8,6 +8,10 @@ from tensorboardX import SummaryWriter
 import argparse
 import os
 
+"Q_OPTION_STAGE"
+option = lambda w: w.logdir.split('_')[1]
+stage = lambda w: w.logdir.split('_')[2]
+
 
 def print_losses(rec, q, tot, numerador, denominador):
     # print_losses(float(reconstruction_loss.item()), float(q_loss.item()), float(total_loss.item()), batch_idx, number_of_batches_per_epoch)
@@ -38,7 +42,7 @@ def write_train_results(step, reconstruction_loss, q_loss, norm_A, norm_of_z, wr
     writer.add_scalar('train_loss/norm_A', norm_A, step)
 
 
-def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, device):
+def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, device, weights_path):
     number_of_batches_per_epoch = len(iter(train_dataloader))
     number_of_batches_per_epoch_validation = len(iter(val_dataloader))
     
@@ -61,23 +65,23 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
             # Write results
             step = ((i*number_of_batches_per_epoch) + batch_idx)
             norm_of_z = torch.trace(torch.matmul(z,z.t()))
-            # Q_0_0
-            write_train_results(step, reconstruction_loss, q_loss, model.Q.get_norm_of_B(), norm_of_z, writer)
-            # Q_1_0
-            # write_train_results(step, reconstruction_loss, q_loss, model.Q.get_norm_of_ATA(), norm_of_z, writer)
+            if(option(wr)=='0'):
+                # Q_0_X
+                write_train_results(step, reconstruction_loss, q_loss, model.Q.get_norm_of_B(), norm_of_z, writer)
+            elif(option(wr)=='1'):
+                # Q_1_X
+                write_train_results(step, reconstruction_loss, q_loss, model.Q.get_norm_of_ATA(), norm_of_z, writer)
             # Backpropagate
             total_loss.backward()
             optimizer.step()
-            break
             
-        # if(i==0):
-        #     freeze_ENC_DEC(model)
+        if(i==0 and stage(wr)=='1'):
+            freeze_ENC_DEC(model)
 
-        # torch.save(model.state_dict(), os.path.join('/data/Ponc/Q_0_1_FIX_no_BN/'+str(i)))
+        torch.save(model.state_dict(), os.path.join(weights_path+str(i)))
         
         # VALIDATION
         with torch.no_grad():
-            # model = model.eval()
             for batch_idx, (sample, label) in enumerate(val_dataloader):
                 # Separate between inliers and outliers
                 inputs = sample.view(100,1,28,28).float().cuda('cuda:'+str(device))
@@ -110,10 +114,8 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
                 elif(q_out.size()[0]>0):
                     for i_q_out in range(number_outliers):
                         writer.add_image('outlier/'+str(step)+'_q_'+str(i_q_out), inputs_out[i_q_out,0,:,:].cpu().numpy().reshape(1,28,28), step+i_q_out)
-                        writer.add_scalar('val_loss/q_loss_ouy_indep', q_out[i_q_out].item(), step+i_q_out)
-
-                
-                
+                        writer.add_scalar('val_loss/q_loss_ouy_indep', q_out[i_q_out].item(), step+i_q_out) 
+                                       
                 writer.add_scalars('val_loss/rec_loss', {'inliers_rec_loss': rec_loss_in.item(),'outliers_rec_loss': rec_loss_out.item()}, step)
                 writer.add_scalars('val_loss/q_loss', {'inliers_q_loss': q_loss_in.item(),'outliers_q_loss': q_loss_out.item()}, step)
 
@@ -127,6 +129,7 @@ if __name__ == '__main__':
     parser.add_argument('--writer', help="Name of the session that will be opened by tensorboard X")
     parser.add_argument('--idx_inliers', help="Digit considered as inlier.")
     parser.add_argument('--device', help="cuda device")
+    parser.add_argument('--weights', help="Path to where the weights will be saved.")
     args = parser.parse_args()
 
     # DATASETS & DATALOADERS
@@ -139,19 +142,12 @@ if __name__ == '__main__':
     val_dataloader = torch.utils.data.DataLoader(mnist_test, batch_size=100, drop_last=True, shuffle=False)
 
     # MODEL
-    if(args.model == 'Q'):
-        model = QMNIST((1,28,28), 64, 1)   
-    elif(args.model == 'Q_PSD'):
-        model = QMNIST_PSD((1,28,28), 64,1)
-    else:
-        model = None
-
+    model = QMNIST((1,28,28), 64, 1, args.model)   
     device = args.device
     model = model.cuda('cuda:'+str(device))
-
     # TensorboardX
     writer = SummaryWriter('runs/'+str(args.writer))
     # TRAINING PARAMS
     n_epochs = 30
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    train_model(model, optimizer, n_epochs, train_dataloader, val_dataloader, writer, idx_inliers, device)
+    train_model(model, optimizer, n_epochs, train_dataloader, val_dataloader, writer, idx_inliers, device, weights_path)
