@@ -123,12 +123,8 @@ class Q_real_M(nn.Module):
         """
         super(Q_real_M, self).__init__()
         self.n = n
-        # Dummy vector to know the exact size of the veronese
-        dummy = torch.rand([x_size, 1]).cuda('cuda:2') # dummy point of size x_size
-        v_x, _ = generate_veronese(dummy, self.n)
-        print("La mida de la matriu sera "+str(v_x.size()[0]))
-        # We don't need dummy anymore
-        self.B = nn.Bilinear(v_x.size()[0], v_x.size()[0], 1, bias=None)
+        self.dim_veronese = int(comb(x_size + n, n))
+        self.B = nn.Bilinear(self.dim_veronese, self.dim_veronese, 1, bias=None)
         self.veroneses = []
         self.has_M_inv = False
         self.M_inv = None
@@ -137,7 +133,6 @@ class Q_real_M(nn.Module):
         if(not self.has_M_inv):
             npoints, dims = x.size()
             v_x, _ = generate_veronese(x.view(dims, npoints), self.n)
-            # v_x is (dim_veronese, BS), transpose it to have the batch dim at the beginning
             self.veroneses.append(v_x.cpu())
         else:
             # Create the veronese map of z
@@ -162,7 +157,6 @@ class Q_real_M(nn.Module):
         self.M_inv = torch.inverse(V).cuda('cuda:2')
         self.has_M_inv = True
         
-
 
 class MyBilinear(nn.Module):
     """
@@ -202,11 +196,7 @@ class Q_FIXED(nn.Module):
         """
         super(Q_FIXED, self).__init__()
         self.n = n
-        # Dummy vector to know the exact size of the veronese
-        dummy = torch.rand([x_size, 1]).cuda('cuda:2') # dummy point of size x_size
-        v_x, _ = generate_veronese(dummy, self.n)
-        print("La mida de la matriu sera "+str(v_x.size()[0]))
-        # We don't need dummy anymore
+        self.dim_veronese = int(comb(x_size+n, n))
         self.B = MyBilinear(v_x.size()[0])
 
     def forward(self, x):

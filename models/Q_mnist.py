@@ -124,7 +124,7 @@ class Decoder(BaseModule):
 class QMNIST_real_M(BaseModule):
 
     def __init__(self, input_shape, code_length, num_chunks):
-        # TODO: implement something that takes z and creates chunks of the latent vector to build a moment matrix for each chunk
+
         super(QMNIST_real_M, self).__init__()
 
         self.input_shape = input_shape
@@ -158,7 +158,7 @@ class QMNIST(BaseModule):
     """
         Encoder-Decoder with outlier detector using moments (Matrix of moments learned)
     """
-    def __init__(self, input_shape, code_length, mode='Q', device = 'cuda:2'):
+    def __init__(self, input_shape, code_length, mode='Q'):
         
         super(QMNIST, self).__init__()
 
@@ -180,11 +180,11 @@ class QMNIST(BaseModule):
 
         # Outlier detector
         if(mode=='Q_Bilinear'):
-            self.Q = Q(self.code_length, 2, device)
+            self.Q = Q(self.code_length, 2)
         elif(mode=='Q'):
-            self.Q = Q_FIXED(self.code_length, 2, device)
+            self.Q = Q_FIXED(self.code_length, 2)
         elif(mode=='Q_PSD'):
-            self.Q = Q_PSD(self.code_length, 2, device)
+            self.Q = Q_PSD(self.code_length, 2)
 
     def forward(self, x):
         z = self.encoder(x) # z is (BS, code_length)
