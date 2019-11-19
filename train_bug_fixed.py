@@ -106,16 +106,14 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
                 number_outliers = q_out.size()[0]
                 if(q_in.size()[0]>0):
                     for i_q_in in range(number_inliers):
-                        writer.add_image('inlier/'+str(step)+'_q_'+str(i_q_in), inputs_in[i_q_in,0,:,:].cpu().numpy().reshape(1,28,28), count_inliers)
+                        writer.add_image('inlier/'+str(count_inliers), inputs_in[i_q_in,0,:,:].cpu().numpy().reshape(1,28,28), count_inliers)
                         writer.add_scalar('val_loss/q_loss_in_indep', q_in[i_q_in].item(), count_inliers)
                         count_inliers += 1
                 elif(q_out.size()[0]>0):
                     for i_q_out in range(number_outliers):
-                        writer.add_image('outlier/'+str(step)+'_q_'+str(i_q_out), inputs_out[i_q_out,0,:,:].cpu().numpy().reshape(1,28,28), count_outliers)
+                        writer.add_image('outlier/'+str(count_outliers), inputs_out[i_q_out,0,:,:].cpu().numpy().reshape(1,28,28), count_outliers)
                         writer.add_scalar('val_loss/q_loss_out_indep', q_out[i_q_out].item(), count_outliers)
                         count_outliers += 1
-
-                
                 
                 writer.add_scalars('val_loss/rec_loss', {'inliers_rec_loss': rec_loss_in.item(),'outliers_rec_loss': rec_loss_out.item()}, step)
                 writer.add_scalars('val_loss/q_loss', {'inliers_q_loss': q_loss_in.item(),'outliers_q_loss': q_loss_out.item()}, step)
