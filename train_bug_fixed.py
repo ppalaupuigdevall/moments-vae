@@ -105,11 +105,11 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
                 if(q_in.size()[0]>0):
                     for i_q_in in range(number_inliers):
                         writer.add_image('inlier/'+str(step)+'_q_'+str(i_q_in), inputs_in[i_q_in,0,:,:].cpu().numpy().reshape(1,28,28), step+i_q_in)
-                        writer.add_scalar('val_loss/q_loss_in_indep', q_loss_in[i_q_in].item(), step+i_q_in)
+                        writer.add_scalar('val_loss/q_loss_in_indep', q_in[i_q_in].item(), step+i_q_in)
                 elif(q_out.size()[0]>0):
                     for i_q_out in range(number_outliers):
                         writer.add_image('outlier/'+str(step)+'_q_'+str(i_q_out), inputs_out[i_q_out,0,:,:].cpu().numpy().reshape(1,28,28), step+i_q_out)
-                        writer.add_scalar('val_loss/q_loss_ouy_indep', q_loss_out[i_q_out].item(), step+i_q_out)
+                        writer.add_scalar('val_loss/q_loss_ouy_indep', q_out[i_q_out].item(), step+i_q_out)
 
                 
                 
