@@ -73,7 +73,7 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
             total_loss.backward()
             optimizer.step()
             
-        if(i==0):
+        if(i==3):
             freeze_ENC_DEC(model)
 
         # torch.save(model.state_dict(), os.path.join('/data/Ponc/Q_0_1_FIX_no_BN/'+str(i)))
@@ -109,12 +109,12 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
                 number_outliers = q_out.size()[0]
                 if(q_in.size()[0]>0):
                     for i_q_in in range(number_inliers):
-                        writer.add_image('inlier/'+str(count_inliers), inputs_in[i_q_in,0,:,:].cpu().numpy().reshape(1,28,28), count_inliers)
+                        # writer.add_image('inlier/'+str(count_inliers), inputs_in[i_q_in,0,:,:].cpu().numpy().reshape(1,28,28), count_inliers)
                         writer.add_scalar('val_loss/q_loss_in', q_in[i_q_in].item(), count_inliers)
                         count_inliers += 1
-                elif(q_out.size()[0]>0):
+                if(q_out.size()[0]>0):
                     for i_q_out in range(number_outliers):
-                        writer.add_image('outlier/'+str(count_outliers), inputs_out[i_q_out,0,:,:].cpu().numpy().reshape(1,28,28), count_outliers)
+                        # writer.add_image('outlier/'+str(count_outliers), inputs_out[i_q_out,0,:,:].cpu().numpy().reshape(1,28,28), count_outliers)
                         writer.add_scalar('val_loss/q_loss_out', q_out[i_q_out].item(), count_outliers)
                         count_outliers += 1
                 
@@ -155,6 +155,6 @@ if __name__ == '__main__':
     # TensorboardX
     writer = SummaryWriter('runs/'+str(args.writer))
     # TRAINING PARAMS
-    n_epochs = 30
+    n_epochs = 100
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     train_model(model, optimizer, n_epochs, train_dataloader, val_dataloader, writer, idx_inliers, device)

@@ -62,17 +62,17 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
             step = ((i*number_of_batches_per_epoch) + batch_idx)
             norm_of_z = torch.trace(torch.matmul(z,z.t()))
             # Q_0_0
-            write_train_results(step, reconstruction_loss, q_loss, model.Q.get_norm_of_B(), norm_of_z, writer)
+            # write_train_results(step, reconstruction_loss, q_loss, model.Q.get_norm_of_B(), norm_of_z, writer)
             # Q_1_0
-            # write_train_results(step, reconstruction_loss, q_loss, model.Q.get_norm_of_ATA(), norm_of_z, writer)
+            write_train_results(step, reconstruction_loss, q_loss, model.Q.get_norm_of_ATA(), norm_of_z, writer)
             # Backpropagate
             total_loss.backward()
             optimizer.step()
             
-        if(i==0):
+        if(i==2):
             freeze_ENC_DEC(model)
 
-        torch.save(model.state_dict(), os.path.join('/data/Ponc/Q_0_1/'+str(i)))
+        # torch.save(model.state_dict(), os.path.join('/data/Ponc/Q_0_1/'+str(i)))
         
         # VALIDATION
         with torch.no_grad():
@@ -101,10 +101,10 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
 
                 step = ((i*number_of_batches_per_epoch_validation)+batch_idx)
                 if(q_in.size()[0]>0):
-                    writer.add_image('inlier/'+str(step)+'_q_'+str(q_in[0]), inputs_in[0,0,:,:].cpu().numpy().reshape(1,28,28), step)
+                    # writer.add_image('inlier/'+str(step)+'_q_'+str(q_in[0]), inputs_in[0,0,:,:].cpu().numpy().reshape(1,28,28), step)
                 elif(q_out.size()[0]>0):
-                    writer.add_image('outlier/'+str(step)+'_q_'+str(q_out[0]), inputs_out[0].cpu().numpy().reshape(1,28,28), step)
-                writer.add_scalars('val_loss/rec_loss', {'inliers_rec_loss': rec_loss_in.item(),'outliers_rec_loss': rec_loss_out.item()}, step)
+                    # writer.add_image('outlier/'+str(step)+'_q_'+str(q_out[0]), inputs_out[0].cpu().numpy().reshape(1,28,28), step)
+                # writer.add_scalars('val_loss/rec_loss', {'inliers_rec_loss': rec_loss_in.item(),'outliers_rec_loss': rec_loss_out.item()}, step)
                 writer.add_scalars('val_loss/q_loss', {'inliers_q_loss': q_loss_in.item(),'outliers_q_loss': q_loss_out.item()}, step)
 
 
