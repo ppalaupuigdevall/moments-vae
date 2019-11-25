@@ -3,7 +3,7 @@ import torchvision
 from torchvision import transforms
 import numpy as np
 from models.Q_mnist import QMNIST
-from models.Q_mnist import QMNIST_PSD
+
 from tensorboardX import SummaryWriter
 import argparse
 import os
@@ -71,14 +71,16 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
             elif(option(wr)=='1'):
                 # Q_1_X
                 write_train_results(step, reconstruction_loss, q_loss, model.Q.get_norm_of_ATA(), norm_of_z, writer)
+                print("Writing Q_1_X")
             # Backpropagate
             total_loss.backward()
             optimizer.step()
             
-        if(i==0 and stage(wr)=='1'):
+        if(i==2 and stage(wr)=='1'):
             freeze_ENC_DEC(model)
 
-        torch.save(model.state_dict(), os.path.join(weights_path+str(i)))
+        if(weights_path is not None):
+            torch.save(model.state_dict(), os.path.join(weights_path+str(i)))
         
         # VALIDATION
         with torch.no_grad():
@@ -109,14 +111,14 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
                 number_outliers = q_out.size()[0]
                 if(q_in.size()[0]>0):
                     for i_q_in in range(number_inliers):
-                        writer.add_image('inlier/'+str(step)+'_q_'+str(i_q_in), inputs_in[i_q_in,0,:,:].cpu().numpy().reshape(1,28,28), step+i_q_in)
+                        # writer.add_image('inlier/'+str(step)+'_q_'+str(i_q_in), inputs_in[i_q_in,0,:,:].cpu().numpy().reshape(1,28,28), step+i_q_in)
                         writer.add_scalar('val_loss/q_loss_in_indep', q_in[i_q_in].item(), step+i_q_in)
                 elif(q_out.size()[0]>0):
                     for i_q_out in range(number_outliers):
-                        writer.add_image('outlier/'+str(step)+'_q_'+str(i_q_out), inputs_out[i_q_out,0,:,:].cpu().numpy().reshape(1,28,28), step+i_q_out)
+                        # writer.add_image('outlier/'+str(step)+'_q_'+str(i_q_out), inputs_out[i_q_out,0,:,:].cpu().numpy().reshape(1,28,28), step+i_q_out)
                         writer.add_scalar('val_loss/q_loss_out_indep', q_out[i_q_out].item(), step+i_q_out) 
                                        
-                writer.add_scalars('val_loss/rec_loss', {'inliers_rec_loss': rec_loss_in.item(),'outliers_rec_loss': rec_loss_out.item()}, step)
+                # writer.add_scalars('val_loss/rec_loss', {'inliers_rec_loss': rec_loss_in.item(),'outliers_rec_loss': rec_loss_out.item()}, step)
                 writer.add_scalars('val_loss/q_loss', {'inliers_q_loss': q_loss_in.item(),'outliers_q_loss': q_loss_out.item()}, step)
 
 
@@ -129,7 +131,7 @@ if __name__ == '__main__':
     parser.add_argument('--writer', help="Name of the session that will be opened by tensorboard X")
     parser.add_argument('--idx_inliers', help="Digit considered as inlier.")
     parser.add_argument('--device', help="cuda device")
-    parser.add_argument('--weights', help="Path to where the weights will be saved.")
+    parser.add_argument('--weights', default=None, help="Path to where the weights will be saved.")
     args = parser.parse_args()
 
     # DATASETS & DATALOADERS
@@ -142,7 +144,7 @@ if __name__ == '__main__':
     val_dataloader = torch.utils.data.DataLoader(mnist_test, batch_size=100, drop_last=True, shuffle=False)
 
     # MODEL
-    model = QMNIST((1,28,28), 64, 1, args.model)   
+    model = QMNIST((1,28,28), 64, args.model)   
     device = args.device
     model = model.cuda('cuda:'+str(device))
     # TensorboardX
@@ -150,4 +152,4 @@ if __name__ == '__main__':
     # TRAINING PARAMS
     n_epochs = 30
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    train_model(model, optimizer, n_epochs, train_dataloader, val_dataloader, writer, idx_inliers, device, weights_path)
+    train_model(model, optimizer, n_epochs, train_dataloader, val_dataloader, writer, idx_inliers, device, args.weights)
