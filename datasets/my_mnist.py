@@ -59,5 +59,5 @@ class MyMNIST_oneVSothers(torch.utils.data.Dataset):
             return self.mnist_out[0][idx], self.mnist_out[1][idx]
 
     def __len__(self):
-        return len(self.mnist_in[1]) + len(self.mnist_out[1])
+        return len(self.mnist_in[1])
     
