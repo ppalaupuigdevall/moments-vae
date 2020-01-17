@@ -15,7 +15,7 @@ class Q(nn.Module):
                 v(x).T * A * v(x)
     
     This class implements the operation above using torch.nn.Bilinear
-    It is kind of (BUG)GY
+    
     """
     def __init__(self, x_size, n):
         """
@@ -150,7 +150,7 @@ class Q_real_M(nn.Module):
         V = self.veroneses[0]
         for i in range(0,n - 1 ):
             V = torch.cat([V, self.veroneses[i+1]], dim=1)
-        # Ara V es un ultra tensor de molts veroneses dels quals hem de fer un outer product
+        
         V = torch.matmul(V.view(bs*n,d,1), V.view(bs*n,1,d))
         V = torch.mean(V,dim=0)
         self.M_inv = torch.inverse(V).cuda('cuda:2')
@@ -186,7 +186,7 @@ class Q_real_M_batches(nn.Module):
             v_x, _ = generate_veronese(x.view(dims, npoints), self.n)
             dim_veronese, BS = v_x.size()
             M_inv_temp = self.create_M(v_x).cuda(1)
-            #TODO: Actualitzar Minv per batches amb sherman-morrisson
+            #TODO: Update Minv batch wise with sherman-morrisson techniques
             M_inv = ((self.M_inv_copy.cuda(1) + M_inv_temp)*0.5)
             
             del M_inv_temp

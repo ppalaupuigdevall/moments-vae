@@ -40,7 +40,7 @@ def veronese_nk(x, n, if_cuda=False, if_coffiecnt=False):
     K, N = x.shape[0], x.shape[1]
     powers = exponent_nk(n, K)
     if if_cuda:
-        powers = torch.tensor(powers, dtype=torch.float).cuda('cuda:1')
+        powers = torch.tensor(powers, dtype=torch.float).cuda('cuda:2')
         
     else:
         powers = torch.tensor(powers, dtype=torch.float)
@@ -90,7 +90,7 @@ def generate_veronese(x, n):
         
         v_x = torch.cat([v_x, v_x_n], dim=0)
     
-    v_x = torch.cat([torch.ones(1,v_x.size()[1]).cuda('cuda:1'), v_x])
+    v_x = torch.cat([torch.ones(1,v_x.size()[1]).cuda('cuda:2'), v_x])
     return v_x, p_x
 
 
@@ -102,8 +102,6 @@ if __name__ == "__main__":
     x1 = torch.cat([torch.ones([1, BS]), x])
     n = 2 # degree of the polynomial, this will generate a moment matrix up to 2*n
     y, p = veronese_nk(x, n, if_cuda=False, if_coffiecnt=False)
-
-
 
     d = 64
     BS = 100

@@ -121,7 +121,9 @@ class Decoder(BaseModule):
 
 
 class QMNIST_real_M(BaseModule):
-
+    """
+    QMNIST_real_M 
+    """
     def __init__(self, input_shape, code_length, num_chunks):
 
         super(QMNIST_real_M, self).__init__()

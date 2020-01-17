@@ -12,7 +12,6 @@ from scipy.special import comb
 def visualize_instance_on_tensorboard(writer,x,idxs_of_bins,z_d,z_dist,i,inlier=True):
     """
     Aquesta funcio esta feta perque el codi de l'altre script no fos demoniac, no jutjar-la
-
     """
     eps = np.finfo(float).eps
     if(inlier):
