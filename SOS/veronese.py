@@ -71,7 +71,6 @@ def veronese_nk(x, n, if_cuda=False, if_coffiecnt=False):
     return y, powers
 
 
-
 def generate_veronese(x, n):
     """Concatenates the results of veronese_nk function to generate the complete veronese map of x
         @param x: Matrix (dim, npoints)
@@ -96,16 +95,37 @@ def generate_veronese(x, n):
 
 
 if __name__ == "__main__":
-    d = 64
-    BS = 32
-    
-    x = torch.rand([d,BS])
-    print(x.size())
+    # d = 64
+    # BS = 32
+    x = torch.tensor([1.0,2.0,3.0])
+    # x = torch.rand([d,BS])
     x1 = torch.cat([torch.ones([1, BS]), x])
-    print(x1)
     n = 2 # degree of the polynomial, this will generate a moment matrix up to 2*n
     y, p = veronese_nk(x, n, if_cuda=False, if_coffiecnt=False)
+
+
+
+    d = 64
+    BS = 100
+    # x = torch.tensor([1.0,2.0,3.0])
+    x = torch.rand([d,BS])+1.0
+    # x1 = torch.cat([torch.ones([1, BS]), x])
+    n = 2 # degree of the polynomial, this will generate a moment matrix up to 2*n
+    # y, p = veronese_nk(x, n, if_cuda=False, if_coffiecnt=False)
+    y, p = generate_veronese(x,n)
+    print("size y " + str(y.size()))
     print(y)
-    print(p)
-    bla, blu = generate_veronese(x.cuda(),n)
-    print(bla.size())
+    dim_v = int(comb(d+n, n))
+    print("dim_v : " + str(dim_v))
+    V = torch.matmul(y.view(BS, dim_v ,1), y.view(BS, 1,dim_v))
+    V = torch.mean(V,dim=0)
+    print(V)
+    print(y)
+    M_inv = torch.inverse(V)
+    print(M_inv)
+    v_x_test, _ = generate_veronese(torch.rand([64,1]),n)
+    Q = torch.matmul(torch.matmul(v_x_test.view(1,1,dim_v),M_inv), v_x_test.view(1,dim_v,1))
+    print(Q)
+    v_x_test, _ = generate_veronese(torch.rand([64,1])*20.0,n)
+    Q = torch.matmul(torch.matmul(v_x_test.view(1,1,dim_v),M_inv), v_x_test.view(1,dim_v,1))
+    print(Q)

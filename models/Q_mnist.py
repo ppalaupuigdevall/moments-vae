@@ -14,7 +14,7 @@ from SOS.Q import Q
 from SOS.Q import Q_PSD
 from SOS.Q import Q_real_M
 from SOS.Q import Q_FIXED
-
+from SOS.Q import Q_real_M_batches
 import torch
 import torch.nn as nn
 
@@ -63,7 +63,6 @@ class Encoder(BaseModule):
         o = self.fc(h) # o is 1, 64
 
         return o
-
 
 
 class Decoder(BaseModule):
@@ -178,13 +177,15 @@ class QMNIST(BaseModule):
             output_shape = input_shape
         )
 
-        # Outlier detector
+        # Outlier detector (All possibilities, implemented in SOS/Q.py)
         if(mode=='Q_Bilinear'):
             self.Q = Q(self.code_length, 2)
         elif(mode=='Q'):
             self.Q = Q_FIXED(self.code_length, 2)
         elif(mode=='Q_PSD'):
             self.Q = Q_PSD(self.code_length, 2)
+        elif(mode=='Q_M_Batches'):
+            self.Q = Q_real_M_batches(self.code_length, 2)
 
     def forward(self, x):
         z = self.encoder(x) # z is (BS, code_length)

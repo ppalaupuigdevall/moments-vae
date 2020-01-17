@@ -94,15 +94,14 @@ class Q_PSD(nn.Module):
 class Q_hinge_loss(nn.Module):
     """
     This loss is defined as follows:
-        max(   0  ,  abs(vt(x) * A * v(x)) - m   )
-    Actually this does not make a lot of sense theoretically so is useless.
+        max(   0  ,  x - m   ) ; where x will be abs(vt(x) * A * v(x)) 
     """
     def __init__(self, order, dim):
         super(Q_hinge_loss, self).__init__()
-        self.magic_Q = comb(order+dim, dim)
+        self.magic_Q = torch.tensor(comb(order+dim, dim))
     
     def forward(self, x):
-        return torch.max(torch.zeros_like(x), x-(self.magic_Q * torch.ones_like(x)))
+        return torch.max(torch.zeros_like(x), x - (self.magic_Q.cuda(1) * torch.ones_like(x)))
 
 
 class Q_real_M(nn.Module):
@@ -158,6 +157,69 @@ class Q_real_M(nn.Module):
         self.has_M_inv = True
         
 
+class Q_real_M_batches(nn.Module):
+    """
+    This module is in charge of 
+        1. Building a moment matrix with the training samples (INLIERS)
+            2. Applying the inverse of the empirically built moment matrix to discriminate outliers/inliers
+    
+    Basically, M = sum{v(x)*v.T(x)}
+    Then applies M_inv:
+
+                v(x).T * M_inv * v(x)
+    """
+    def __init__(self, x_size, n):
+        """
+        x_size = vector_size, [x1 x2 ... xd]
+        n = moment degree up to n
+        """
+        super(Q_real_M_batches, self).__init__()
+        self.n = n
+        self.dim_veronese = int(comb(x_size + n, n))
+        
+        self.evaluation = False
+        self.M_inv_copy = torch.eye(self.dim_veronese)
+    def forward(self, x):
+        if(not self.evaluation):
+            # Create the veronese map of z
+            npoints, dims = x.size()
+            v_x, _ = generate_veronese(x.view(dims, npoints), self.n)
+            dim_veronese, BS = v_x.size()
+            M_inv_temp = self.create_M(v_x).cuda(1)
+            #TODO: Actualitzar Minv per batches amb sherman-morrisson
+            M_inv = ((self.M_inv_copy.cuda(1) + M_inv_temp)*0.5)
+            
+            del M_inv_temp
+            torch.cuda.empty_cache()
+            
+            x = torch.matmul(
+                torch.matmul(
+                v_x.view(BS, 1, dim_veronese), M_inv),
+                v_x.view(BS, dim_veronese, 1))
+            self.M_inv_copy = M_inv.cpu().detach().clone()
+        else:
+            npoints, dims = x.size()
+            v_x, _ = generate_veronese(x.view(dims, npoints), self.n)
+            dim_veronese, BS = v_x.size()
+            x = torch.matmul(
+                torch.matmul(
+                v_x.view(BS, 1, dim_veronese), self.M_inv_copy.cuda(1)),
+                v_x.view(BS, dim_veronese, 1))
+
+        return x
+
+    def create_M(self, v_x):
+        d, bs = v_x.size()
+        V = torch.matmul(v_x.view(bs,d,1), v_x.view(bs,1,d))
+        V = torch.mean(V,dim=0)
+        M_inv = torch.inverse(V).cuda(1)
+        return M_inv
+
+
+    def set_eval(self, b):
+        assert isinstance(b,bool),"b must be boolean"
+        self.evaluation = b
+
 class MyBilinear(nn.Module):
     """
     Class created to solve the bug in Q, which used bilinear operation of PyTorch and seemed to work bad.
@@ -197,7 +259,7 @@ class Q_FIXED(nn.Module):
         super(Q_FIXED, self).__init__()
         self.n = n
         self.dim_veronese = int(comb(x_size+n, n))
-        self.B = MyBilinear(v_x.size()[0])
+        self.B = MyBilinear(self.dim_veronese)
 
     def forward(self, x):
         npoints, dims = x.size()

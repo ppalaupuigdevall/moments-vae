@@ -8,7 +8,7 @@ from SOS.Q import Q_hinge_loss
 from tensorboardX import SummaryWriter
 import argparse
 import os
-
+from datasets.my_mnist import MyMNIST_oneVSothers
 "Q_OPTION_STAGE"
 option = lambda w: w.logdir.split('_')[1]
 stage = lambda w: w.logdir.split('_')[2]
@@ -52,45 +52,60 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
     
     # Loss function
     mse = torch.nn.MSELoss()
-    lambda_reconstruction = torch.tensor([1.0]).cuda('cuda:'+str(device))
+    lambda_reconstruction = torch.tensor([0.1]).cuda('cuda:'+str(device))
     lambda_q = torch.tensor([1.0]).cuda('cuda:'+str(device))
-   
+    
     # TRAINING PROCESS
     count_inliers, count_outliers = 0, 0
     for i in range(0, n_epochs):
         # TRAINING
         for batch_idx, (sample, label) in enumerate(train_dataloader):
+            
             inputs = sample.view(bs,1,28,28).float().cuda('cuda:'+str(device))
+            
+            idx_in = label==idx_inliers
+            idx_out = label!= idx_inliers
+            
+            inliers = inputs[idx_in]
+            outliers = inputs[idx_out]
+
             optimizer.zero_grad()
-            z, q, rec = model(inputs)
+            # Set training for Q (Update Minv)
+            model.Q.set_eval(False)
+            z, q, rec = model(inliers)
             # compute loss function
-            reconstruction_loss = lambda_reconstruction * mse(inputs, rec)
-            q_loss = lambda_q * torch.sum(torch.abs(q))/bs 
-            total_loss = torch.add(q_loss, reconstruction_loss)
+            reconstruction_loss = lambda_reconstruction * mse(inliers, rec)
+            q_loss_in = lambda_q * torch.sum(torch.abs(q))/idx_in.size()[0]
+            # Set evaluation mode for Q
+            model.Q.set_eval(True)
+            z_out, q_out, rec_out = model(outliers)
+            q_loss_out = lambda_q * torch.sum(torch.abs(q_out))
+            total_loss = reconstruction_loss + q_loss_in - q_loss_out
+
             # Write results
             step = ((i*number_of_batches_per_epoch) + batch_idx)
             norm_of_z = torch.trace(torch.matmul(z,z.t()))
             if(option(wr)=='0'):
                 # Q_0_X
-                write_train_results(step, reconstruction_loss, q_loss, model.Q.get_norm_of_B(), norm_of_z, writer)
+                write_train_results(step, reconstruction_loss, q_loss_in, model.Q.get_norm_of_B(), norm_of_z, writer)
             elif(option(wr)=='1'):
                 # Q_1_X
-                write_train_results(step, reconstruction_loss, q_loss, model.Q.get_norm_of_ATA(), norm_of_z, writer)
+                write_train_results(step, reconstruction_loss, q_loss_in, model.Q.get_norm_of_ATA(), norm_of_z, writer)
                 print("Writing Q_1_X")
+            elif(option(wr)=='M'):
+                write_train_results(step, reconstruction_loss, q_loss_in, torch.trace(torch.matmul(model.Q.M_inv_copy.t(), model.Q.M_inv_copy)), norm_of_z, writer)
+                print("Writing")
+
             # Backpropagate
             total_loss.backward()
-            # print(model.Q.B.A.grad)
-            Agrad = model.Q.B.A.grad.clone().cpu().detach().numpy()
-            A = model.Q.B.A.clone().cpu().detach().numpy()
-            np.save(weights_path+'Agrads/'+str(batch_idx), Agrad)
-            np.save(weights_path+'As/'+str(batch_idx), A)
             optimizer.step()
             
         if(i==2 and stage(wr)=='1'):
             freeze_ENC_DEC(model)
-
         if(weights_path is not None):
             torch.save(model.state_dict(), os.path.join(weights_path+str(i)))
+        
+        model.Q.set_eval(True)
         
         # VALIDATION
         with torch.no_grad():
@@ -122,10 +137,9 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
                 if(q_in.size()[0]>0):
                     for i_q_in in range(number_inliers):
                         # writer.add_image('inlier/'+str(count_inliers), inputs_in[i_q_in,0,:,:].cpu().numpy().reshape(1,28,28), count_inliers)
-                        if(i_q_in==0):
-                            writer.add_image('inlier_rec/'+str(count_inliers), rec_in[i_q_in,0,:,:].cpu().numpy().reshape(1,28,28), count_inliers)
                         writer.add_scalar('val_loss/q_loss_in', q_in[i_q_in].item(), count_inliers)
                         count_inliers += 1
+
                 if(q_out.size()[0]>0):
                     for i_q_out in range(number_outliers):
                         # writer.add_image('outlier/'+str(count_outliers), inputs_out[i_q_out,0,:,:].cpu().numpy().reshape(1,28,28), count_outliers)
@@ -133,6 +147,7 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
                         count_outliers += 1
                 
                 writer.add_scalars('val_loss/q_loss', {'inliers_q_loss': q_loss_in.item(),'outliers_q_loss': q_loss_out.item()}, step)
+            model.Q.set_eval(False)
 
 
 
@@ -140,7 +155,11 @@ if __name__ == '__main__':
 
     # Parse arguments
     parser = argparse.ArgumentParser(description='Train encoder decoder to learn moment matrix.')
-    parser.add_argument('--model', help="Available models:\n 1. Q_Bilinear (learns M_inv directly using torch.nn.Bilinear)\n 2. Q (Learns M_inv = A) \n 3.  Q_PSD (Learns M_inv = A.T*A so M is PSD)")
+    parser.add_argument('--model', help="Available models:\n \
+                                            1. Q_Bilinear (learns M_inv directly using torch.nn.Bilinear)\n \
+                                            2. Q (Learns M_inv = A) \n \
+                                            3. Q_PSD (Learns M_inv = A.T*A so M is PSD)\n \
+                                            4. Q_M_Batches")
     parser.add_argument('--writer', help="Name of the session that will be opened by tensorboard X")
     parser.add_argument('--idx_inliers', help="Digit considered as inlier.")
     parser.add_argument('--device', help="cuda device")
@@ -148,9 +167,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # DATASETS & DATALOADERS
-    mnist = torchvision.datasets.MNIST('data/MNIST', train=True, download=True, transform=transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))]))
-    idx_inliers = int(args.idx_inliers)
-    mnist = select_idx(mnist, idx_inliers)
+    mnist = MyMNIST_oneVSothers(int(args.idx_inliers))
     mnist_test = torchvision.datasets.MNIST('data/MNIST', train=False, transform=transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))]))
     bs = 64
     train_dataloader = torch.utils.data.DataLoader(mnist, batch_size=bs, drop_last=True, num_workers=8)
@@ -165,4 +182,9 @@ if __name__ == '__main__':
     # TRAINING PARAMS
     n_epochs = 100
     optimizer = torch.optim.Adam([{'params': model.encoder.parameters()}, {'params': model.decoder.parameters()}, {'params': model.Q.parameters(), 'lr': 1e-2}], lr=1e-3)
-    train_model(model, optimizer, n_epochs, train_dataloader, val_dataloader, writer, idx_inliers, device, args.weights)
+    # bla = iter((train_dataloader))
+    # fuet = bla.next()
+    # print(fuet[1])
+    # pernil = bla.next()
+    # print(pernil[1])
+    train_model(model, optimizer, n_epochs, train_dataloader, val_dataloader, writer, int(args.idx_inliers), device, args.weights)

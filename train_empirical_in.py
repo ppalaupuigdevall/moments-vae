@@ -52,15 +52,20 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
     
     # Loss function
     mse = torch.nn.MSELoss()
-    lambda_reconstruction = torch.tensor([1.0]).cuda('cuda:'+str(device))
+    lambda_reconstruction = torch.tensor([0.1]).cuda('cuda:'+str(device))
     lambda_q = torch.tensor([1.0]).cuda('cuda:'+str(device))
-   
+    print("Let us print some parameters of Q")
+    for param in model.Q.parameters():
+        print(param)
+    print("IEP")
+    print(model.Q.parameters())
     # TRAINING PROCESS
     count_inliers, count_outliers = 0, 0
     for i in range(0, n_epochs):
         # TRAINING
         for batch_idx, (sample, label) in enumerate(train_dataloader):
             inputs = sample.view(bs,1,28,28).float().cuda('cuda:'+str(device))
+         
             optimizer.zero_grad()
             z, q, rec = model(inputs)
             # compute loss function
@@ -77,13 +82,17 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
                 # Q_1_X
                 write_train_results(step, reconstruction_loss, q_loss, model.Q.get_norm_of_ATA(), norm_of_z, writer)
                 print("Writing Q_1_X")
+            elif(option(wr)=='M'):
+                write_train_results(step, reconstruction_loss, q_loss, torch.trace(torch.matmul(model.Q.M_inv_copy.t(), model.Q.M_inv_copy)), norm_of_z, writer)
+                print("Writing")
+
             # Backpropagate
             total_loss.backward()
             # print(model.Q.B.A.grad)
-            Agrad = model.Q.B.A.grad.clone().cpu().detach().numpy()
-            A = model.Q.B.A.clone().cpu().detach().numpy()
-            np.save(weights_path+'Agrads/'+str(batch_idx), Agrad)
-            np.save(weights_path+'As/'+str(batch_idx), A)
+            # Agrad = model.Q.B.weight.grad.clone().cpu().detach().numpy()
+            # A = model.Q.B.weight.clone().cpu().detach().numpy()
+            # np.save(weights_path+'Agrads/'+str(batch_idx), Agrad)
+            # np.save(weights_path+'As/'+str(batch_idx), A)
             optimizer.step()
             
         if(i==2 and stage(wr)=='1'):
@@ -91,7 +100,7 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
 
         if(weights_path is not None):
             torch.save(model.state_dict(), os.path.join(weights_path+str(i)))
-        
+        model.Q.set_eval(True)
         # VALIDATION
         with torch.no_grad():
             for batch_idx, (sample, label) in enumerate(val_dataloader):
@@ -122,8 +131,6 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
                 if(q_in.size()[0]>0):
                     for i_q_in in range(number_inliers):
                         # writer.add_image('inlier/'+str(count_inliers), inputs_in[i_q_in,0,:,:].cpu().numpy().reshape(1,28,28), count_inliers)
-                        if(i_q_in==0):
-                            writer.add_image('inlier_rec/'+str(count_inliers), rec_in[i_q_in,0,:,:].cpu().numpy().reshape(1,28,28), count_inliers)
                         writer.add_scalar('val_loss/q_loss_in', q_in[i_q_in].item(), count_inliers)
                         count_inliers += 1
                 if(q_out.size()[0]>0):
@@ -133,6 +140,7 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
                         count_outliers += 1
                 
                 writer.add_scalars('val_loss/q_loss', {'inliers_q_loss': q_loss_in.item(),'outliers_q_loss': q_loss_out.item()}, step)
+            model.Q.set_eval(False)
 
 
 
@@ -140,7 +148,7 @@ if __name__ == '__main__':
 
     # Parse arguments
     parser = argparse.ArgumentParser(description='Train encoder decoder to learn moment matrix.')
-    parser.add_argument('--model', help="Available models:\n 1. Q_Bilinear (learns M_inv directly using torch.nn.Bilinear)\n 2. Q (Learns M_inv = A) \n 3.  Q_PSD (Learns M_inv = A.T*A so M is PSD)")
+    parser.add_argument('--model', help="Available models:\n 1. Q_Bilinear (learns M_inv directly using torch.nn.Bilinear)\n 2. Q (Learns M_inv = A) \n 3.  Q_PSD (Learns M_inv = A.T*A so M is PSD)\n 4. Q_M_Batches")
     parser.add_argument('--writer', help="Name of the session that will be opened by tensorboard X")
     parser.add_argument('--idx_inliers', help="Digit considered as inlier.")
     parser.add_argument('--device', help="cuda device")

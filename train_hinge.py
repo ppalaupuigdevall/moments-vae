@@ -1,6 +1,5 @@
 import torch
 import torchvision
-# torch.set_printoptions(profile="full")
 from torchvision import transforms
 import numpy as np
 from models.Q_mnist import QMNIST
@@ -52,9 +51,10 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
     
     # Loss function
     mse = torch.nn.MSELoss()
-    lambda_reconstruction = torch.tensor([1.0]).cuda('cuda:'+str(device))
+    lambda_reconstruction = torch.tensor([0.001]).cuda('cuda:'+str(device))
     lambda_q = torch.tensor([1.0]).cuda('cuda:'+str(device))
-   
+    q_hinge = Q_hinge_loss(2,64)
+
     # TRAINING PROCESS
     count_inliers, count_outliers = 0, 0
     for i in range(0, n_epochs):
@@ -65,7 +65,8 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
             z, q, rec = model(inputs)
             # compute loss function
             reconstruction_loss = lambda_reconstruction * mse(inputs, rec)
-            q_loss = lambda_q * torch.sum(torch.abs(q))/bs 
+            # q_loss = lambda_q * torch.sum(torch.abs(q))/bs 
+            q_loss = torch.sum(q_hinge(torch.abs(q)))/bs
             total_loss = torch.add(q_loss, reconstruction_loss)
             # Write results
             step = ((i*number_of_batches_per_epoch) + batch_idx)
@@ -79,11 +80,7 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
                 print("Writing Q_1_X")
             # Backpropagate
             total_loss.backward()
-            # print(model.Q.B.A.grad)
-            Agrad = model.Q.B.A.grad.clone().cpu().detach().numpy()
-            A = model.Q.B.A.clone().cpu().detach().numpy()
-            np.save(weights_path+'Agrads/'+str(batch_idx), Agrad)
-            np.save(weights_path+'As/'+str(batch_idx), A)
+            
             optimizer.step()
             
         if(i==2 and stage(wr)=='1'):
@@ -122,8 +119,6 @@ def train_model(model, optimizer, epochs, train_dl, val_dl, wr, idx_inliers, dev
                 if(q_in.size()[0]>0):
                     for i_q_in in range(number_inliers):
                         # writer.add_image('inlier/'+str(count_inliers), inputs_in[i_q_in,0,:,:].cpu().numpy().reshape(1,28,28), count_inliers)
-                        if(i_q_in==0):
-                            writer.add_image('inlier_rec/'+str(count_inliers), rec_in[i_q_in,0,:,:].cpu().numpy().reshape(1,28,28), count_inliers)
                         writer.add_scalar('val_loss/q_loss_in', q_in[i_q_in].item(), count_inliers)
                         count_inliers += 1
                 if(q_out.size()[0]>0):
@@ -164,5 +159,6 @@ if __name__ == '__main__':
     writer = SummaryWriter('runs/'+str(args.writer))
     # TRAINING PARAMS
     n_epochs = 100
-    optimizer = torch.optim.Adam([{'params': model.encoder.parameters()}, {'params': model.decoder.parameters()}, {'params': model.Q.parameters(), 'lr': 1e-2}], lr=1e-3)
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     train_model(model, optimizer, n_epochs, train_dataloader, val_dataloader, writer, idx_inliers, device, args.weights)
