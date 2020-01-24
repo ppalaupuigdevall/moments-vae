@@ -10,10 +10,10 @@ There are basically 2 approaches:
   * class Q_Real_M
   * class Q_Real_M_Batches (still in maintenance)
 2. Learn directly ![equation](https://latex.codecogs.com/gif.latex?M%5E%7B-1%7D), which is implemented in:
-  * class Q            \
-                        One uses a pytorch built-in function, the other not (I did it because I thought there was a bug) they do the same
-  * class Q_MyBilinear /
+  * class Q      
+  * class Q_MyBilinear
   * class Q_PSD
+  Q and Q_MyBilinear do the same, is just that one uses a pytorch built-in function, the other not (I did it because I thought there was a bug) 
   
   ## USAGE 
   
