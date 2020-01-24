@@ -13,6 +13,7 @@ There are basically 2 approaches:
   * class Q      
   * class Q_MyBilinear
   * class Q_PSD
+  
   Q and Q_MyBilinear do the same, is just that one uses a pytorch built-in function, the other not (I did it because I thought there was a bug) 
   
   ## USAGE 
