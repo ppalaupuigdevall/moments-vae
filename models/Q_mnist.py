@@ -185,7 +185,6 @@ class QMNIST(BaseModule):
         if(mode=='Q_Bilinear'):
             self.Q = Q(self.code_length, 2)
         elif(mode=='Q'):
-            print("IEP")
             self.Q = Q_MyBilinear(self.code_length, 2)
         elif(mode=='Q_PSD'):
             self.Q = Q_PSD(self.code_length, 2)
