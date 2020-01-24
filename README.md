@@ -9,7 +9,7 @@ There are basically 2 approaches:
 1. Use *empirical Moment Matrix*, which is implemented in:
   * class Q_Real_M
   * class Q_Real_M_Batches (still in maintenance)
-2. Learn directly ![equation](https://latex.codecogs.com/gif.latex?M%5E%7B-1%7D), which is implemented in:
+2. *Learn* directly ![equation](https://latex.codecogs.com/gif.latex?M%5E%7B-1%7D), which is implemented in:
   * class Q      
   * class Q_MyBilinear
   * class Q_PSD
