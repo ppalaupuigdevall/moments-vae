@@ -131,7 +131,6 @@ if __name__ == '__main__':
     # MODEL
     if(args.model == 'Q'):
         model = QMNIST((1,28,28), 64, 1)   
-        
     elif(args.model == 'Q_PSD'):
         model = QMNIST_PSD((1,28,28), 64,1)
     else:

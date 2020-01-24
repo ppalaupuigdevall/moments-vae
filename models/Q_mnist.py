@@ -13,7 +13,7 @@ from models.estimator_1D import Estimator1D
 from SOS.Q import Q
 from SOS.Q import Q_PSD
 from SOS.Q import Q_real_M
-from SOS.Q import Q_FIXED
+from SOS.Q import Q_MyBilinear
 from SOS.Q import Q_real_M_batches
 import torch
 import torch.nn as nn
@@ -152,12 +152,13 @@ class QMNIST_real_M(BaseModule):
     def forward(self, x):
         z = self.encoder(x) # z is (BS, code_length)
         q = self.Q(z)
+        rec = self.decoder(z)
         return z, q
 
 
 class QMNIST(BaseModule):
     """
-        Encoder-Decoder with outlier detector using moments (Matrix of moments learned)
+        Encoder-Decoder with outlier detector using moments (Matrix of moments learned (or not))
     """
     def __init__(self, input_shape, code_length, mode='Q'):
         
@@ -180,14 +181,18 @@ class QMNIST(BaseModule):
         )
 
         # Outlier detector (All possibilities, implemented in SOS/Q.py)
+        self.Q = None
         if(mode=='Q_Bilinear'):
             self.Q = Q(self.code_length, 2)
         elif(mode=='Q'):
-            self.Q = Q_FIXED(self.code_length, 2)
+            print("IEP")
+            self.Q = Q_MyBilinear(self.code_length, 2)
         elif(mode=='Q_PSD'):
             self.Q = Q_PSD(self.code_length, 2)
         elif(mode=='Q_M_Batches'):
             self.Q = Q_real_M_batches(self.code_length, 2)
+        elif(mode=='Q_Real_M'):
+            self.Q = Q_real_M(self.code_length, 2)
 
     def forward(self, x):
         z = self.encoder(x) # z is (BS, code_length)

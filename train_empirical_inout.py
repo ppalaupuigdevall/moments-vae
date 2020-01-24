@@ -156,7 +156,7 @@ if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser(description='Train encoder decoder to learn moment matrix.')
     parser.add_argument('--model', help="Available models:\n \
-                                            1. Q_Bilinear (learns M_inv directly using torch.nn.Bilinear)\n \
+                                            1. Q_Bilinear (learns M_inv = A directly using torch.nn.Bilinear)\n \
                                             2. Q (Learns M_inv = A) \n \
                                             3. Q_PSD (Learns M_inv = A.T*A so M is PSD)\n \
                                             4. Q_M_Batches")

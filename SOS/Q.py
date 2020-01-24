@@ -46,7 +46,6 @@ class Bilinear_ATA(nn.Module):
                 
                 x.T * A.T * A * x
 
-    Deals with batches correctly.
     """
     def __init__(self, x_size):
         super(Bilinear_ATA, self).__init__()
@@ -145,18 +144,19 @@ class Q_real_M(nn.Module):
         return x
 
     def create_M(self):
+        # This method should be created from outlise the class
         n = len(self.veroneses)
         d, bs = self.veroneses[0].size()
         V = self.veroneses[0]
         for i in range(0,n - 1 ):
             V = torch.cat([V, self.veroneses[i+1]], dim=1)
-        
+    
         V = torch.matmul(V.view(bs*n,d,1), V.view(bs*n,1,d))
         V = torch.mean(V,dim=0)
         self.M_inv = torch.inverse(V).cuda('cuda:2')
         self.has_M_inv = True
         
-
+        
 class Q_real_M_batches(nn.Module):
     """
     This module is in charge of 
@@ -167,6 +167,7 @@ class Q_real_M_batches(nn.Module):
     Then applies M_inv:
 
                 v(x).T * M_inv * v(x)
+    NOTE: STILL IN MAINTENANCE
     """
     def __init__(self, x_size, n):
         """
@@ -245,7 +246,7 @@ class MyBilinear(nn.Module):
         return x
 
 
-class Q_FIXED(nn.Module):
+class Q_MyBilinear(nn.Module):
     """
     This class implements the following operation
         
@@ -256,7 +257,7 @@ class Q_FIXED(nn.Module):
         x_size = vector_size, [x1 x2 ... xd]
         n = moment degree up to n
         """
-        super(Q_FIXED, self).__init__()
+        super(Q_MyBilinear, self).__init__()
         self.n = n
         self.dim_veronese = int(comb(x_size+n, n))
         self.B = MyBilinear(self.dim_veronese)

@@ -11,6 +11,38 @@ from torch.utils.data.dataloader import numpy_type_map
 from torch.utils.data.dataloader import string_classes
 
 
+
+def print_losses(rec, q, tot, numerador, denominador):
+    # print_losses(float(reconstruction_loss.item()), float(q_loss.item()), float(total_loss.item()), batch_idx, number_of_batches_per_epoch)
+    print("{:0.2f}%  REC = {:0.2f} | Q = {:0.2f}  | TOTAL = {:0.2f} ".format((numerador/denominador)*100.0,rec, q, tot))
+
+
+def select_idx(mnist, idx):
+    # Select the digit we are considering as inlier
+    idx_inliers = idx
+    idxs = mnist.train_labels == idx_inliers
+    mnist.train_labels = mnist.train_labels[idxs]
+    mnist.train_data = mnist.train_data[idxs]
+    return mnist
+
+
+def freeze_ENC_DEC(model):
+    # Freeze encoder-decoder
+    for name,param in model.encoder.named_parameters():
+        param.requires_grad = False
+    for name,param in model.decoder.named_parameters():
+        param.requires_grad = False
+
+
+def write_train_results(step, reconstruction_loss, q_loss, norm_A, norm_of_z, writer):
+    writer.add_scalar('train_loss/norm_z', norm_of_z, step)
+    writer.add_scalar('train_loss/rec_loss', reconstruction_loss, step)
+    writer.add_scalar('train_loss/Q_loss', q_loss, step)
+    writer.add_scalar('train_loss/norm_A', norm_A, step)
+
+
+
+
 def set_random_seed(seed):
     # type: (int) -> None
     """
