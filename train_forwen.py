@@ -36,7 +36,7 @@ if __name__ == '__main__':
     val_dataloader = torch.utils.data.DataLoader(mnist_test, batch_size=100, drop_last=True, shuffle=False)
     
     # TRAINING PARAMS
-    n_epochs = 5
+    n_epochs = 4
     train_mode = TrainMode.rec_and_empirical_M
     trainer = Trainer(train_mode=train_mode, Q_option=model_type)
     trainer.train(n_epochs, train_dataloader, val_dataloader, writer, idx_inliers, device)

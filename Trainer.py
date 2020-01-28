@@ -68,6 +68,8 @@ class Trainer:
         # if it can discriminate between inliers and outliers.
         number_of_batches_per_epoch = len(iter(train_dataloader))
         number_of_batches_per_epoch_validation = len(iter(val_dataloader))
+        print("Number of batches per epoch in training = " + str(number_of_batches_per_epoch))
+        print("Number of batches per epoch in validation = " + str(number_of_batches_per_epoch_validation))
 
         # Loss function
         mse = torch.nn.MSELoss()
@@ -77,6 +79,7 @@ class Trainer:
         bs = train_dataloader.batch_size
         count_inliers, count_outliers = 0, 0
         for i in range(0, n_epochs):
+            print("Training begins")
             # TRAINING
             for batch_idx, (sample, label) in enumerate(train_dataloader):
                 inputs = sample.view(bs,1,28,28).float().cuda('cuda:'+str(device))
@@ -103,53 +106,67 @@ class Trainer:
                 # Backpropagate & step
                 reconstruction_loss.backward()
                 optimizer.step()
-                
-            # Now that it achieves good reconstruction, we freeze the model and create the empirical moment matrix
-            freeze_ENC_DEC(model)
-            if(weights_path is not None):
-                torch.save(model.state_dict(), os.path.join(weights_path+str(i)))
-            
-            # CREATE MOMENT MATRIX
-            model.create_M()
+                print(batch_idx/number_of_batches_per_epoch)
 
+
+        # Now that it achieves good reconstruction, we freeze the model and create the empirical moment matrix
+        freeze_ENC_DEC(model)
+        print("Model frozen")
+        # if(weights_path is not None):
+        #     torch.save(model.state_dict(), os.path.join(weights_path+str(i)))
+        
+        # CREATE MOMENT MATRIX
+        # 0. Set buil_M to True (to save veronese maps)
+        model.Q.set_build_M()
+        print("buil_M set to True")
+        # 1. We go through all the training set
+        with torch.no_grad():
+            for batch_idx, (sample, label) in enumerate(train_dataloader):
+                inputs = sample.view(bs,1,28,28).float().cuda('cuda:'+str(device))
+                _, _, _ = model(inputs)
+            # 2. Create empiricall moment matrix
+            model.Q.create_M() 
+            print("Moment matrix created")
+
+            # Now that we have moment matrix, apply it!
             # VALIDATION
-            with torch.no_grad():
-                for batch_idx, (sample, label) in enumerate(val_dataloader):
-                    # Separate between inliers and outliers
-                    inputs = sample.view(100,1,28,28).float().cuda('cuda:'+str(device))
-                    z, q, rec = model(inputs)
-                    # compute loss function
-                    inliers = label == idx_inliers
-                    outliers = label != idx_inliers
+            for batch_idx, (sample, label) in enumerate(val_dataloader):
+                # Separate between inliers and outliers
+                inputs = sample.view(100,1,28,28).float().cuda('cuda:'+str(device))
+                z, q, rec = model(inputs)
+                # compute loss function
+                inliers = label == idx_inliers
+                outliers = label != idx_inliers
+                
+                inputs_in = inputs[inliers, :, :, :]
+                z_in = z[inliers]
+                q_in = q[inliers]
+                rec_in = rec[inliers]
+                rec_loss_in = lambda_reconstruction * mse(inputs_in, rec_in)
+                q_loss_in = torch.sum(torch.abs(q_in))/q_in.size()[0]
+                
+                inputs_out = inputs[outliers]
+                z_out = z[outliers]
+                q_out = q[outliers]
+                rec_out = rec[outliers]
+                rec_loss_out = lambda_reconstruction * mse(inputs_out, rec_out)
+                q_loss_out = torch.sum(torch.abs(q_out))/q_out.size()[0]
 
-                    inputs_in = inputs[inliers, :, :, :]
-                    z_in = z[inliers]
-                    q_in = q[inliers]
-                    rec_in = rec[inliers]
-                    rec_loss_in = lambda_reconstruction * mse(inputs_in, rec_in)
-                    q_loss_in = lambda_q * torch.sum(torch.abs(q_in))/q_in.size()[0]
-                    
-                    inputs_out = inputs[outliers]
-                    z_out = z[outliers]
-                    q_out = q[outliers]
-                    rec_out = rec[outliers]
-                    rec_loss_out = lambda_reconstruction * mse(inputs_out, rec_out)
-                    q_loss_out = lambda_q * torch.sum(torch.abs(q_out))/q_out.size()[0]
-
-                    step = ((i*number_of_batches_per_epoch_validation)+batch_idx)
-                    number_inliers = q_in.size()[0]
-                    number_outliers = q_out.size()[0]
-                    # TENSORBOARD
-                    # if(q_in.size()[0]>0):
-                    #     for i_q_in in range(number_inliers):
-                    #         # writer.add_image('inlier/'+str(count_inliers), inputs_in[i_q_in,0,:,:].cpu().numpy().reshape(1,28,28), count_inliers)
-                    #         writer.add_scalar('val_loss/q_loss_in', q_in[i_q_in].item(), count_inliers)
-                    #         count_inliers += 1
-                    # if(q_out.size()[0]>0):
-                    #     for i_q_out in range(number_outliers):
-                    #         # writer.add_image('outlier/'+str(count_outliers), inputs_out[i_q_out,0,:,:].cpu().numpy().reshape(1,28,28), count_outliers)
-                    #         writer.add_scalar('val_loss/q_loss_out', q_out[i_q_out].item(), count_outliers)
-                    #         count_outliers += 1
-                    
-                    # writer.add_scalars('val_loss/q_loss', {'inliers_q_loss': q_loss_in.item(),'outliers_q_loss': q_loss_out.item()}, step)
+                step = ((i*number_of_batches_per_epoch_validation)+batch_idx)
+                number_inliers = q_in.size()[0]
+                number_outliers = q_out.size()[0]
+                
+                # TENSORBOARD
+                if(q_in.size()[0]>0):
+                    for i_q_in in range(number_inliers):
+                        # writer.add_image('inlier/'+str(count_inliers), inputs_in[i_q_in,0,:,:].cpu().numpy().reshape(1,28,28), count_inliers)
+                        writer.add_scalar('val_loss/q_loss_in', q_in[i_q_in].item(), count_inliers)
+                        count_inliers += 1
+                if(q_out.size()[0]>0):
+                    for i_q_out in range(number_outliers):
+                        # writer.add_image('outlier/'+str(count_outliers), inputs_out[i_q_out,0,:,:].cpu().numpy().reshape(1,28,28), count_outliers)
+                        writer.add_scalar('val_loss/q_loss_out', q_out[i_q_out].item(), count_outliers)
+                        count_outliers += 1
+                
+                writer.add_scalars('val_loss/q_loss', {'inliers_q_loss': q_loss_in.item(),'outliers_q_loss': q_loss_out.item()}, step)
 

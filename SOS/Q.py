@@ -122,17 +122,18 @@ class Q_real_M(nn.Module):
         super(Q_real_M, self).__init__()
         self.n = n
         self.dim_veronese = int(comb(x_size + n, n))
-        self.B = nn.Bilinear(self.dim_veronese, self.dim_veronese, 1, bias=None)
         self.veroneses = []
-        self.has_M_inv = False
+        self.has_M_inv = False 
         self.M_inv = None
+        self.build_M = False # Will be true when the autoencoder gets good reconstruction
 
     def forward(self, x):
-        if(not self.has_M_inv):
+        if(not self.has_M_inv and self.build_M):
+            # We want only veronese maps to build the moment matrix once we have good reconstruction (self.build_M = True) !
             npoints, dims = x.size()
             v_x, _ = generate_veronese(x.view(dims, npoints), self.n)
             self.veroneses.append(v_x.cpu())
-        else:
+        elif(self.has_M_inv):
             # Create the veronese map of z
             npoints, dims = x.size()
             v_x, _ = generate_veronese(x.view(dims, npoints), self.n)
@@ -150,13 +151,15 @@ class Q_real_M(nn.Module):
         V = self.veroneses[0]
         for i in range(0,n - 1 ):
             V = torch.cat([V, self.veroneses[i+1]], dim=1)
-    
         V = torch.matmul(V.view(bs*n,d,1), V.view(bs*n,1,d))
         V = torch.mean(V,dim=0)
         self.M_inv = torch.inverse(V).cuda('cuda:2')
         self.has_M_inv = True
-        
-        
+    
+    def set_build_M(self):
+        self.build_M = True
+
+
 class Q_real_M_batches(nn.Module):
     """
     This module is in charge of 
