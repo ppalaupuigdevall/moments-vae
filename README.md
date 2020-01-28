@@ -18,7 +18,7 @@ There are basically 2 approaches:
   
   ## USAGE 
   
-  `python train_forwen.py --model Q --writer experimentname --idx_inliers 1 --device 2`
+  `python train_forwen.py --model Q_real_M --writer experimentname --idx_inliers 1 --device 2`
   
   ## Requirements
   
