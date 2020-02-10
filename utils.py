@@ -21,8 +21,10 @@ def select_idx(mnist, idx):
     # Select the digit we are considering as inlier
     idx_inliers = idx
     idxs = mnist.train_labels == idx_inliers
-    mnist.train_labels = mnist.train_labels[idxs]
-    mnist.train_data = mnist.train_data[idxs]
+    # mnist.train_labels = mnist.train_labels[idxs]
+    # mnist.train_data = mnist.train_data[idxs]
+    mnist.data = mnist.data[idxs]
+    mnist.targets = mnist.targets[idxs]
     return mnist
 
 

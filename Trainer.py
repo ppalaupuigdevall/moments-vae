@@ -4,11 +4,22 @@ from torchvision import transforms
 import numpy as np
 
 from enum import Enum
-from models.Q_mnist import QMNIST
+# from models.Q_mnist import QMNIST
+from models.vae_model_wen import ConvVAE
 from utils import print_losses
 from utils import freeze_ENC_DEC
 from utils import write_train_results
+from torch.nn import functional as F
 
+
+def loss_function(recon_x, x, mu, logvar):
+    # reconstruction loss
+    BCE = F.binary_cross_entropy(recon_x.view(-1, 784), x.view(-1, 784), reduction='sum')
+
+    # KL divergence loss
+    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+
+    return BCE + KLD
 
 "Q_OPTION_STAGE"
 option = lambda w: w.logdir.split('_')[1]
@@ -35,15 +46,18 @@ class Trainer:
         self.train_mode = train_mode
         self.Q_option = Q_option
         self.model = None
-
-    def train(self, n_epochs, train_dataloader, val_dataloader, writer, idx_inliers, device):
+    
+    # def train(self, n_epochs, train_dataloader, val_dataloader, writer, idx_inliers, device):
+    def train(self, n_epochs, train_dataloader, val_dataloader, idx_inliers, device):
         
         if(self.train_mode == TrainMode.rec_and_empirical_M):
-            self.model = QMNIST((1,28,28), 64, 'Q_Real_M')
+            # self.model = QMNIST((1,28,28), 64, 'Q_Real_M')
+            self.model = ConvVAE((1,28,28), 64, 'Q_Real_M')
             self.model = self.model.cuda('cuda:'+str(device))
             optimizer = torch.optim.Adam([{'params': self.model.encoder.parameters()},{'params': self.model.decoder.parameters()}, \
                                           {'params': self.model.Q.parameters(), 'lr': 1e-2}], lr=1e-3)
-            self.train_rec_and_empirical_M(self.model, optimizer, n_epochs, train_dataloader, val_dataloader, writer, idx_inliers, device)
+            # self.train_rec_and_empirical_M(self.model, optimizer, n_epochs, train_dataloader, val_dataloader, writer, idx_inliers, device)
+            self.train_rec_and_empirical_M(self.model, optimizer, n_epochs, train_dataloader, val_dataloader, idx_inliers, device)
 
         elif(self.train_mode == TrainMode.rec_and_Q or \
              self.train_mode == TrainMode.rec_then_Q):
@@ -56,12 +70,12 @@ class Trainer:
                                           {'params': self.model.Q.parameters(), 'lr': 1e-2}], lr=1e-3)
 
             if(self.train_mode == TrainMode.rec_and_Q):
-                self.train_rec_and_Q(self.model, optimizer, n_epochs, train_dataloader, val_dataloader, writer, idx_inliers, device)
+                self.train_rec_and_Q(self.model, optimizer, n_epochs, train_dataloader, val_dataloader, idx_inliers, device)  # have writer before idx_inliers
             elif(self.train_mode == TrainMode.rec_then_Q): 
-                self.train_rec_then_Q(self.model, optimizer, n_epochs, train_dataloader, val_dataloader, writer, idx_inliers, device)
+                self.train_rec_then_Q(self.model, optimizer, n_epochs, train_dataloader, val_dataloader, idx_inliers, device) # have writer before idx_inliers
 
 
-    def train_rec_and_empirical_M(self, model, optimizer, n_epochs, train_dataloader, val_dataloader, writer, idx_inliers, device):
+    def train_rec_and_empirical_M(self, model, optimizer, n_epochs, train_dataloader, val_dataloader, idx_inliers, device): # have writer before idx_inliers
 
         # Train an autoencoder until it gets good reconstruction in MNIST (n_epochs), then 
         # build a moment matrix with all the samples of the training set to see
@@ -85,9 +99,11 @@ class Trainer:
                 inputs = sample.view(bs,1,28,28).float().cuda('cuda:'+str(device))
             
                 optimizer.zero_grad()
-                z, q, rec = model(inputs)
+                z, q, rec ,mu, logvar= model(inputs)
                 # compute loss function
-                reconstruction_loss = lambda_reconstruction * mse(inputs, rec)
+                # reconstruction_loss = lambda_reconstruction * mse(inputs, rec)
+                reconstruction_loss = loss_function(rec, inputs, mu, logvar)
+                # train_loss += reconstruction_loss.item()
                 
                 # Write results to TENSORBOARD UNCOMMENT TO DISPLAY THEM
                 # step = ((i*number_of_batches_per_epoch) + batch_idx)
@@ -123,7 +139,7 @@ class Trainer:
         with torch.no_grad():
             for batch_idx, (sample, label) in enumerate(train_dataloader):
                 inputs = sample.view(bs,1,28,28).float().cuda('cuda:'+str(device))
-                _, _, _ = model(inputs)
+                _, _, _,_,_ = model(inputs)
             # 2. Create empiricall moment matrix
             model.Q.create_M() 
             print("Moment matrix created")
@@ -133,7 +149,7 @@ class Trainer:
             for batch_idx, (sample, label) in enumerate(val_dataloader):
                 # Separate between inliers and outliers
                 inputs = sample.view(100,1,28,28).float().cuda('cuda:'+str(device))
-                z, q, rec = model(inputs)
+                z, q, rec, mu, logvar = model(inputs)
                 # compute loss function
                 inliers = label == idx_inliers
                 outliers = label != idx_inliers
@@ -142,20 +158,27 @@ class Trainer:
                 z_in = z[inliers]
                 q_in = q[inliers]
                 rec_in = rec[inliers]
-                rec_loss_in = lambda_reconstruction * mse(inputs_in, rec_in)
+                mu_in = mu[inliers]
+                logvar_in = logvar[inliers]
+                # rec_loss_in = lambda_reconstruction * mse(inputs_in, rec_in)
+                rec_loss_in = loss_function(rec_in, inputs_in, mu_in, logvar_in)
                 q_loss_in = torch.sum(torch.abs(q_in))/q_in.size()[0]
                 
                 inputs_out = inputs[outliers]
                 z_out = z[outliers]
                 q_out = q[outliers]
                 rec_out = rec[outliers]
-                rec_loss_out = lambda_reconstruction * mse(inputs_out, rec_out)
+                mu_out = mu[outliers]
+                logvar_out = logvar[outliers]
+                # rec_loss_out = lambda_reconstruction * mse(inputs_out, rec_out)
+                rec_loss_out = loss_function(rec_out, inputs_out, mu_out, logvar_out)
                 q_loss_out = torch.sum(torch.abs(q_out))/q_out.size()[0]
 
                 step = ((i*number_of_batches_per_epoch_validation)+batch_idx)
                 number_inliers = q_in.size()[0]
                 number_outliers = q_out.size()[0]
                 
+                '''
                 # TENSORBOARD
                 if(q_in.size()[0]>0):
                     for i_q_in in range(number_inliers):
@@ -169,4 +192,4 @@ class Trainer:
                         count_outliers += 1
                 
                 writer.add_scalars('val_loss/q_loss', {'inliers_q_loss': q_loss_in.item(),'outliers_q_loss': q_loss_out.item()}, step)
-
+                '''
